@@ -75,7 +75,7 @@ Without one, the tests that need RackTicker skip and the catalog tests still run
 
 Departures, Onboard, Surf, Quakes, Tanks and Now playing were part of the RackTicker
 repository until they moved here, keeping their IDs, versions and settings. Virtual
-Aquarium came from its own repository at commit `769ca73`. Nothing already installed
+Aquarium came from its own repository at commit `c345635`. Nothing already installed
 on a panel is changed by the move; see [MIGRATION.md](MIGRATION.md).
 
 ## Licence

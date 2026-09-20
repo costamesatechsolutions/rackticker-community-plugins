@@ -93,4 +93,4 @@ original license retained in `LICENSE`. This repository supplies the plugin sour
 
 ## Migration provenance
 
-Copied without runtime code changes from [the standalone aquarium repository](https://github.com/costamesatechsolutions/rackticker-virtual-aquarium) at commit `769ca73`. The original repository remains available. Future community development belongs in this folder.
+Copied without runtime code changes from [the standalone aquarium repository](https://github.com/costamesatechsolutions/rackticker-virtual-aquarium) at commit `c345635`. The original repository remains available. Future community development belongs in this folder.

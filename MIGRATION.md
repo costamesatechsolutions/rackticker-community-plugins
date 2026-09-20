@@ -4,7 +4,7 @@
 
 - This repository is the home for RackTicker community plugins: one self-contained
   folder each, with its own manifest, licence, README, agent notes and previews.
-- Virtual Aquarium 1.0.0 copied from standalone commit `769ca73`, and Retro
+- Virtual Aquarium 1.0.0 copied from standalone commit `c345635`, and Retro
   Screensavers 1.0.0 added, both keeping their IDs and versions.
 - Departures, Onboard, Surf, Quakes, Tanks and Now playing moved out of the
   RackTicker repository, keeping their IDs, versions, settings schemas and code
