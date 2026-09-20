@@ -131,3 +131,17 @@ if __name__ == "__main__":
 
 if __name__ == "__main__":
     unittest.main()
+
+
+@unittest.skipIf(validate_config is None, "clone RackTicker beside this repository to run these")
+class LinkCardTests(unittest.TestCase):
+    def test_a_detail_line_fills_fields_and_abbreviates_big_numbers(self):
+        links = load("links_test", "url_data")
+        reply = {"bitcoin": {"usd": 80533, "usd_market_cap": 1617671147604.7, "usd_24h_vol": 24312879325.7,
+                             "usd_24h_change": -0.867}}
+        self.assertEqual(links.detail_line("MCAP {bitcoin.usd_market_cap:short}  VOL {bitcoin.usd_24h_vol:short}", reply),
+                         "MCAP 1.6T  VOL 24.3B")
+        self.assertEqual(links.detail_line("24H {bitcoin.usd_24h_change:+.1f}%", reply), "24H -0.9%")
+        self.assertEqual(links.detail_line("X {bitcoin.nothing}", reply), "X --")
+        self.assertEqual(links.number("81,280.50"), 81280.5)
+        self.assertIsNone(links.number(True))
