@@ -466,7 +466,7 @@ class TrafficModule(Module):
         watched = (freeways(chosen) if chosen.strip() else [tuple(route) for route in data.get("freeways") or []])[:4]
         for index, (system, number) in enumerate(watched):
             shield(frame, system, number, index * 24, 12)
-        right = max(len(watched) * 24, 60)
+        right = max(len(watched) * 24, 60) if watched else 0     # nothing on the left: centre it
         centre = right + (128 - right) // 2
         draw_text(frame, "ALL", centre - text_width("ALL") // 2, 11, ALL_CLEAR)
         draw_text(frame, "CLEAR", centre - text_width("CLEAR") // 2, 21, ALL_CLEAR)

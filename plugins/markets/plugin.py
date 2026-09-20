@@ -4,6 +4,7 @@ Each event gets a card in two beats: the question, word-wrapped and still so it
 can be read whole, then the answer slides up -- a big YES probability with a
 filling bar, or the leading outcomes. Nothing moves while you are reading.
 """
+import re
 import asyncio
 import json
 from itertools import zip_longest
@@ -221,8 +222,17 @@ LABEL_WIDTH = 128 - 6 - 24  # left of the percentage column
 LABEL_SPEED, LABEL_PAUSE = 30, 1.2
 
 
+def board_label(label):
+    """An outcome's name for the board. A trailing note in brackets goes when that is
+    all that stops the name fitting, so 'United Russia (ER)' reads whole instead of
+    scrolling three letters."""
+    label = label.upper()
+    short = re.sub(r"\s*\([^)]*\)\s*$", "", label)
+    return short if short and short != label and text_width(short) <= LABEL_WIDTH < text_width(label) else label
+
+
 def overflow(label):
-    return max(0, text_width(label.upper()) - LABEL_WIDTH)
+    return max(0, text_width(board_label(label)) - LABEL_WIDTH)
 
 
 def board_pages(event):
@@ -354,7 +364,7 @@ class MarketsModule(Module):
             y = 15 if len(shown) == 1 else 10 + slot * 11
             pct = _percent(outcome["probability"])
             leader = rank == 0
-            label = outcome["label"].upper()
+            label = board_label(outcome["label"])
             color = WHITE if leader else (170, 180, 180)
             extra = overflow(label)
             if extra:
