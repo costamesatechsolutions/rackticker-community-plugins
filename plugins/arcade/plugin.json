@@ -1,0 +1,9 @@
+{
+  "id": "arcade",
+  "name": "Arcade",
+  "entry": "plugin.py",
+  "description": "Ambient arcade: real games, played live by simple AIs at native resolution.",
+  "author": "Costa Mesa Tech Solutions",
+  "version": "1.0.0",
+  "homepage": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/arcade"
+}

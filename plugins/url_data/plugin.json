@@ -1,0 +1,9 @@
+{
+  "id": "url_data",
+  "name": "Data from a link",
+  "entry": "plugin.py",
+  "description": "Any number or text from a JSON web address, shown as a big clean card. No code: paste a link and the field to show.",
+  "author": "Costa Mesa Tech Solutions",
+  "version": "1.0.0",
+  "homepage": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/url_data"
+}

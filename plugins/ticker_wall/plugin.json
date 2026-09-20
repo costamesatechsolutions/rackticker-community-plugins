@@ -1,0 +1,9 @@
+{
+  "id": "ticker_wall",
+  "name": "LED sign",
+  "entry": "plugin.py",
+  "description": "Programmable LED sign: the storefront kind that spells words out of flying pixels, drops letters in, spins slot reels and chases marquee bulbs.",
+  "author": "Costa Mesa Tech Solutions",
+  "version": "1.0.0",
+  "homepage": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/ticker_wall"
+}

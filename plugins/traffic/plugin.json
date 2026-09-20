@@ -1,0 +1,9 @@
+{
+  "id": "traffic",
+  "name": "Freeway traffic",
+  "entry": "plugin.py",
+  "description": "Freeway traffic board: live CHP incidents on nearby freeways, shown as a freeway shield, what happened, where, and how long ago.",
+  "author": "Costa Mesa Tech Solutions",
+  "version": "1.0.0",
+  "homepage": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/traffic"
+}
