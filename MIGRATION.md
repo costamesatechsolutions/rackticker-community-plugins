@@ -1,27 +1,51 @@
 # Community repository migration
 
-## Completed here
+## Done
 
-- Created a separate community repository, with one self-contained folder per plugin.
-- Copied Virtual Aquarium 1.0.0 from standalone commit `769ca73`, retaining its ID,
-  runtime code, tests and license. Updated only its local documentation.
-- Added Retro Screensavers 1.0.0 as a new independent plugin.
-- Added a root index.json using the existing community-catalog schema and folder URLs.
+- This repository is the home for RackTicker community plugins: one self-contained
+  folder each, with its own manifest, licence, README, agent notes and previews.
+- Virtual Aquarium 1.0.0 copied from standalone commit `769ca73`, and Retro
+  Screensavers 1.0.0 added, both keeping their IDs and versions.
+- Departures, Onboard, Surf, Quakes, Tanks and Now playing moved out of the
+  RackTicker repository, keeping their IDs, versions, settings schemas and code
+  unchanged. Only their `homepage`, author and documentation changed.
+- Their tests came with them (`tests/test_plugins.py`); they skip when there is no
+  RackTicker checkout beside this repository rather than failing.
+- `index.json` lists all eight, and `tests/test_catalog.py` holds it to the
+  manifests, so a catalog entry cannot drift from the plugin it describes.
+- RackTicker's plugin browser reads this repository's `index.json`, with a bundled
+  copy as the fallback for when the network is not there.
 
-No changes to the RackTicker main repository, deployed core, existing plugin
-source URLs or running device configuration are part of this repository setup.
-The standalone aquarium repository remains accessible for existing links.
+## What moving the files does not do
 
-## Future work — requires an explicit migration task
+It does not move an installation. A plugin already on a panel recorded where it came
+from in its own `.source.json`, and that still points at the old folder in the
+RackTicker repository. It keeps running, but **Check for updates** will not find
+anything once the old folders are gone.
 
-1. Copy existing community plugins one at a time; retain IDs, settings schema,
-   version history/provenance and licenses. Test each in the third-party sandbox.
-2. Add entries to this catalog and verify each public folder URL with the installer.
-3. Plan update-source transitions for already installed plugins; preserve settings
-   and playlist membership. Merely copying files does not migrate installed sources.
-4. In a separately reviewed RackTicker change, point the remote community catalog
-   at this repository and update its bundled fallback catalog. Keep old links usable.
-5. Remove old source copies only after that migration is validated and explicitly approved.
+Two ways to fix a panel that has one:
 
-Do not point the core browser at this two-entry catalog prematurely: that would
-hide the existing community entries until they have been migrated or linked here.
+- Reinstall from the new folder URL. Settings are keyed by plugin ID, so they
+  survive, and the playlist keeps its place.
+- Or rewrite the recorded source in place, which avoids the reinstall:
+
+```sh
+sudo python3 - <<'PY'
+import json, pathlib
+NEW = "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins"
+for source in pathlib.Path("/var/lib/rackticker/plugins").glob("*/.source.json"):
+    record = json.loads(source.read_text())
+    if record.get("repo") != "rackticker" or not record.get("folder", "").startswith("community/"):
+        continue
+    name = record["folder"].split("/", 1)[1]
+    record.update(repo="rackticker-community-plugins", folder=f"plugins/{name}", url=f"{NEW}/{name}")
+    source.write_text(json.dumps(record, indent=2))
+    print("repointed", name)
+PY
+sudo systemctl restart rackticker
+```
+
+## Still open
+
+- The old `community/<name>` URLs 404 now that the folders are gone. That is what the
+  note above is for; there is no redirect GitHub can give for a deleted folder.
