@@ -30,6 +30,14 @@ SPOTS = {
     "pipeline": ("Pipeline", 21.668, -158.055, "1612340"),
 }
 COMPASS = ("N", "NE", "E", "SE", "S", "SW", "W", "NW")
+# The picture on the right: a slice of sea meeting a beach. Waves come in from the left,
+# run up the sand, and the tide moves the waterline up and down the slope.
+WINDOW_X, WINDOW_TOP = 88, 8
+WINDOW_W, WINDOW_H = 128 - WINDOW_X, 32 - WINDOW_TOP
+SLOPE_START, SLOPE = 14, .8           # where the sand starts to rise, and how fast (rows per column)
+WATER = ((120, 224, 255), (70, 190, 250), (40, 150, 240), (30, 120, 225), (24, 96, 200), (18, 72, 168),
+         (14, 56, 140), (12, 46, 120))            # surface to deep
+SAND, WET_SAND, FOAM_WHITE = (216, 190, 138), (150, 124, 90), (240, 250, 255)
 WHITE, GREY, AMBER, SEA, FOAM = (236, 238, 236), (140, 146, 150), (255, 176, 20), (30, 110, 220), (200, 235, 255)
 
 
@@ -108,10 +116,9 @@ class Water:
         self.speed = [0.0] * width
         self.clock = 0.0
 
-    def prime(self, size):
+    def prime(self, size, wavelength=34.0):
         """Start with a sea already running. Made from cold the panel spends the
         first seconds of every visit flat while the first wave crosses it."""
-        wavelength = 34.0
         for x in range(len(self.height)):
             phase = (x - len(self.height)) / wavelength * math.tau
             self.height[x] = math.sin(phase) * size
@@ -160,7 +167,7 @@ class Report(Module):
     name = "surf"
 
     def __init__(self):
-        self.water = Water()
+        self.water = Water(WINDOW_W)
         self.last = None
 
     def refresh_interval(self, context):
@@ -183,33 +190,67 @@ class Report(Module):
         dt = 1 / 30 if first or not 0 < t - self.last < .5 else t - self.last
         self.last = t
         if first:
-            self.water.prime(min(6.0, 1.5 + (surf.get("height") or 1) * .8) / 2)
+            self.water.prime(self._size(surf) / 2, 16.0)
         level = self._level(surf.get("tide"))
-        self._wave(frame, surf, dt, level)
+        self._sea(frame, surf, dt, level)
+        # Everything to read is on the left, on black, clear of the water.
         draw_text(frame, surf["spot"], 0, 0, AMBER, mixed=True)
         if surf.get("water") is not None:
             water = f"{round(surf['water'])}°"
             draw_text(frame, water, 128 - text_width(water), 0, SEA)
         size = face(surf["height"])
-        draw_text(frame, size, 0, 10, WHITE, 2, True)
-        x = text_width(size, 2) + 5
-        details = []
+        room = WINDOW_X - 3
+        scale = 2 if text_width(size, 2) <= room else 1
+        draw_text(frame, size, 0, 9 if scale == 2 else 12, WHITE, scale, scale == 2)
+        # One line under it: the swell, then the tide with an arrow for which way it is going.
+        x = 0
         if surf.get("period"):
             direction = COMPASS[round((surf.get("direction") or 0) / 45) % 8]
-            details.append(f"{round(surf['period'])}S {direction}")
+            swell = f"{round(surf['period'])}S {direction}"
+            draw_tiny(frame, swell, x, 26, GREY)
+            x += tiny_width(swell) + 6
         tide = surf.get("tide")
         if tide:
             when = datetime.strptime(tide["time"], "%Y-%m-%d %H:%M")
             clock = when.strftime("%I:%M%p").lstrip("0").replace("AM", "A").replace("PM", "P")
-            details.append(f"{'HIGH' if tide['high'] else 'LOW'} {clock}")
-        for index, line in enumerate(details):
-            if x + tiny_width(line) <= 128:
-                draw_tiny(frame, line, 128 - tiny_width(line), 11 + index * 7, GREY)
-        # An arrow beside the tide line: coming in, or going out.
-        if tide and len(details) > 1 and x + tiny_width(details[-1]) + 7 <= 128:
-            triangle(frame, 128 - tiny_width(details[-1]) - 7, 12 + (len(details) - 1) * 7,
-                     bool(tide["high"]), SEA)
+            label = f"{'HIGH' if tide['high'] else 'LOW'} {clock}"
+            if x + 7 + tiny_width(label) <= room:
+                triangle(frame, x, 27, bool(tide["high"]), SEA)
+                draw_tiny(frame, label, x + 7, 26, GREY)
         return frame
+
+    @staticmethod
+    def _size(surf):
+        """How tall the waves are drawn, in rows: sized by the real surf."""
+        return min(5.0, 1.6 + (surf.get("height") or 1) * .7)
+
+    def _sea(self, frame, surf, dt, level=None):
+        """A slice of the real thing: swell running in from the left, the beach rising
+        on the right, and the waterline sitting where the real tide has put it."""
+        size = self._size(surf)
+        period = max(5.0, min(20.0, surf.get("period") or 10))
+        water = self.water
+        water.step(dt, period, size)
+        # Low tide leaves the water low and the beach wide; high tide floods up the slope.
+        surface = 16.5 - ((.5 if level is None else level) - .5) * 6
+        top = frame.load()
+        for column in range(WINDOW_W):
+            x = WINDOW_X + column
+            sand = 31 - max(0.0, (column - SLOPE_START) * SLOPE)          # the beach's top edge here
+            wave = surface - water.height[WINDOW_W - 1 - column]           # the water's top edge here
+            water_row, sand_row = round(wave), round(sand)
+            for y in range(max(WINDOW_TOP, min(water_row, sand_row)), 32):
+                if y >= sand_row:
+                    # Sand the water has just left is wet, and darker for it.
+                    top[x, y] = WET_SAND if y - sand_row < 2 and water_row < sand_row + 2 else SAND
+                else:
+                    depth = y - water_row
+                    top[x, y] = WATER[min(len(WATER) - 1, depth)]
+            if water_row < sand_row and water_row >= WINDOW_TOP:
+                # Foam on the crest, and a white edge where the water meets the sand.
+                climb = -water.speed[WINDOW_W - 1 - column]
+                if climb > size * 1.4 or sand_row - water_row <= 1:
+                    top[x, water_row] = FOAM_WHITE
 
     @staticmethod
     def _level(tide, now=None):
@@ -230,28 +271,6 @@ class Report(Module):
             return None
         done = min(1.0, max(0.0, 1 - (turn - now).total_seconds() / swing))
         return done if tide["high"] else 1 - done
-
-    def _wave(self, frame, surf, dt, level=None):
-        """Real water: springs pushed by the real swell, sitting at the real tide."""
-        size = min(6.0, 1.5 + (surf.get("height") or 1) * .8)
-        period = max(5.0, min(20.0, surf.get("period") or 10))
-        water = self.water
-        water.step(dt, period, size)
-        rise = 0 if level is None else (level - .5) * 5
-        draw = ImageDraw.Draw(frame)
-        base = 31 - size / 2 - rise
-        for x in range(128):
-            top = base - water.height[x]
-            row = round(top)
-            if row > 31:
-                continue
-            draw.line((x, max(0, row), x, 31), fill=SEA)
-            # Foam where the water is climbing fastest: the face of a breaking wave.
-            climb = -water.speed[x]
-            if climb > size * 1.5:
-                draw.point((x, max(0, row)), fill=FOAM)
-                if climb > size * 3 and row > 0:
-                    draw.point((x, row - 1), fill=(150, 200, 250))
 
 
 plugin = Plugin(
