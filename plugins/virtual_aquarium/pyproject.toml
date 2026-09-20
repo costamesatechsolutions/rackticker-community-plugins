@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rackticker-virtual-aquarium"
+version = "1.0.0"
+requires-python = ">=3.11"
+dependencies = ["rackticker>=0.1,<0.2", "aiohttp", "Pillow"]
+license = "AGPL-3.0-only"
+license-files = ["LICENSE"]
+
+[project.entry-points."rackticker.plugins"]
+virtual_aquarium = "rackticker_aquarium:plugin"
+
+[tool.setuptools]
+py-modules = ["rackticker_aquarium"]

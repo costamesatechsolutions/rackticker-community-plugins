@@ -1,0 +1,8 @@
+{
+  "id": "retro_savers",
+  "name": "Retro Screensavers",
+  "entry": "plugin.py",
+  "description": "Classic desktop nostalgia in 128×32 pixels: growing 3D pipes, Mystify trails, starfield, a bouncing four-pane badge and marquee text.",
+  "author": "Costa Mesa Tech Solutions",
+  "version": "1.0.0"
+}

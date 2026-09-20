@@ -1,0 +1,19 @@
+{
+  "about": "Independent RackTicker community plugins. Install an individual plugin folder URL. Core catalog migration is pending.",
+  "plugins": [
+    {
+      "id": "retro_savers",
+      "name": "Retro Screensavers",
+      "author": "Costa Mesa Tech Solutions",
+      "description": "Classic desktop nostalgia in 128\u00d732 pixels: growing 3D pipes, Mystify trails, starfield, a bouncing four-pane badge and marquee text.",
+      "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/retro_savers"
+    },
+    {
+      "id": "virtual_aquarium",
+      "name": "Virtual Aquarium",
+      "author": "Costa Mesa Tech Solutions",
+      "description": "A living pixel aquarium: clownfish, angelfish, neon tetras, swaying plants and a wandering snail. Optionally mirrors real tank readings and lighting.",
+      "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/virtual_aquarium"
+    }
+  ]
+}
