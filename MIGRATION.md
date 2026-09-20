@@ -11,10 +11,15 @@
   unchanged. Only their `homepage`, author and documentation changed.
 - Their tests came with them (`tests/test_plugins.py`); they skip when there is no
   RackTicker checkout beside this repository rather than failing.
-- `index.json` lists all eight, and `tests/test_catalog.py` holds it to the
+- `index.json` lists all fourteen, and `tests/test_catalog.py` holds it to the
   manifests, so a catalog entry cannot drift from the plugin it describes.
 - RackTicker's plugin browser reads this repository's `index.json`, with a bundled
   copy as the fallback for when the network is not there.
+
+- Arcade, Formula 1, Prediction markets, the LED sign, Freeway traffic and Data from a
+  link followed on 2026-09-20, the same way, with their tests in `tests/test_moved.py`
+  and `tests/test_traffic.py`. RackTicker keeps seven plugins bundled: weather, town,
+  finance, sportsbook, free sports, news and local ADS-B.
 
 ## What moving the files does not do
 
