@@ -12,7 +12,7 @@ import unittest
 try:
     from app.core.config import validate_config
     from app.core.manifest import read_manifest
-    from app.core.models import Message, SystemStatus
+    from app.core.models import Message, Snapshot, SystemStatus
     from app.core.plugins import PluginRegistry
     from app.core.renderer import validate_frame
     from app.modules.base import RenderContext
@@ -396,49 +396,121 @@ class MetrolinkTests(unittest.TestCase):
 
 @needs_rackticker
 class OnboardTests(unittest.TestCase):
-    """The strip map above the carriage doors: where the train is on its line."""
+    """The display above the carriage doors: where the train is, and what it is coming to."""
 
-    def run_for(self, statuses, now="2026-09-19T12:30:00-07:00"):
+    # Southwest Chief: stops a hundred miles apart along a line, 12:00 (LA) to 15:00.
+    PLACES = {"S0": (34.0, -118.0), "S1": (35.0, -117.0), "S2": (36.0, -116.0), "S3": (37.0, -115.0)}
+
+    def run_for(self, statuses, speed=61.2, position=(34.5, -117.5), fix="2026-09-19T12:20:00-07:00"):
         stations = []
         for index, status in enumerate(statuses):
             hour = 10 + index
-            stations.append({"code": f"S{index}", "name": f"Stop {index} Station", "status": status,
-                             "schArr": f"2026-09-19T{hour:02d}:00:00-07:00",
-                             "arr": f"2026-09-19T{hour:02d}:10:00-07:00"})
+            stop = {"code": f"S{index}", "name": f"Stop {index} Station", "status": status,
+                    "schArr": f"2026-09-19T{hour:02d}:00:00-07:00", "schDep": f"2026-09-19T{hour:02d}:05:00-07:00"}
+            if status != "Enroute" or index >= 2:
+                stop.update(arr=f"2026-09-19T{hour:02d}:10:00-07:00", dep=f"2026-09-19T{hour:02d}:15:00-07:00")
+            stations.append(stop)
         return {"trainNum": "4", "routeName": "Southwest Chief", "origName": "Los Angeles Union",
-                "destName": "Chicago Union Station", "trainState": "Active", "velocity": 61.2,
-                "stations": stations}
+                "destName": "Chicago Union Station", "trainState": "Active", "velocity": speed,
+                "lat": position[0], "lon": position[1], "lastValTS": fix, "stations": stations}
 
-    def journey(self, statuses, now="2026-09-19T12:30:00-07:00"):
+    def journey(self, statuses, **kwargs):
         onboard = community("onboard")
-        return onboard.journey(self.run_for(statuses), datetime.fromisoformat(now))
+        return onboard.journey(self.run_for(statuses, **kwargs), self.PLACES)
 
-    def test_the_next_stop_is_the_first_one_still_ahead(self):
-        ride = self.journey(["Departed", "Station", "Enroute", "Enroute"])
+    def test_the_next_stop_is_the_one_after_the_last_the_train_left(self):
+        ride = self.journey(["Departed", "Departed", "Enroute", "Enroute"])
         self.assertEqual(ride["next"], 2)
         self.assertEqual(ride["stops"][2]["name"], "Stop 2")     # "Station" trimmed off the end
         self.assertEqual(ride["to"], "Chicago")
         self.assertEqual(ride["late"], 10)
         self.assertTrue(ride["moving"])
+        self.assertEqual(ride["left"], 1)
 
-    def test_the_train_sits_between_the_stop_behind_and_the_one_ahead(self):
-        # Behind it left at 11:10, ahead is due 12:10: at 12:30 the leg is done.
-        ride = self.journey(["Departed", "Station", "Enroute"], now="2026-09-19T11:40:00-07:00")
-        self.assertGreater(ride["progress"], .4)
-        self.assertLess(ride["progress"], .6)
+    def test_stops_the_feed_never_heard_about_are_not_where_the_train_is_heading(self):
+        """Amtraker says 'Station', with no times, for stops it has no news of. Live, the
+        first ten stops of a train's run read like that, and the screen named the first."""
+        onboard = community("onboard")
+        run = self.run_for(["Station", "Station", "Departed", "Enroute"])
+        for stop in run["stations"][:2]:
+            stop.pop("arr", None), stop.pop("dep", None)
+        ride = onboard.journey(run, self.PLACES)
+        self.assertEqual(ride["next"], 3)
+        self.assertFalse(ride["here"])
 
-    def test_a_train_that_has_not_called_anywhere_starts_at_its_first_stop(self):
-        ride = self.journey(["Enroute", "Enroute"])
-        self.assertEqual(ride["next"], 0)
-        self.assertEqual(ride["progress"], 0.0)
+    def test_a_train_standing_at_a_platform_says_so(self):
+        ride = self.journey(["Departed", "Station", "Enroute"], speed=0, position=(35.0, -117.0))
+        self.assertEqual(ride["next"], 1)
+        self.assertTrue(ride["here"])
+        self.assertEqual(ride["late"], 10)                        # measured against when it is due to leave
+        # ...but 'Station' on a train doing sixty is the feed being behind, not a train at a platform.
+        moving = self.journey(["Departed", "Station", "Enroute"], speed=60)
+        self.assertFalse(moving["here"])
+        self.assertEqual(moving["next"], 2)
 
-    def test_a_train_that_has_finished_points_at_its_last_stop(self):
-        ride = self.journey(["Departed", "Departed", "Station"])
-        self.assertEqual(ride["next"], 2)
+    def test_where_the_train_is_between_two_stops_comes_from_where_it_is(self):
+        ride = self.journey(["Departed", "Departed", "Enroute"], position=(35.5, -116.5))
+        self.assertTrue(ride["geo"])
+        self.assertAlmostEqual(ride["p0"], .5, delta=.02)
+        # A position nowhere near the line between the two stops is not trusted.
+        lost = self.journey(["Departed", "Departed", "Enroute"], position=(45.0, -90.0))
+        self.assertFalse(lost["geo"])
 
-    def test_a_run_with_no_stops_is_not_a_ride(self):
+    def test_the_train_is_carried_forward_between_pictures_but_only_for_a_while(self):
+        onboard = community("onboard")
+        ride = self.journey(["Departed", "Departed", "Enroute"], position=(35.5, -116.5))
+        asof = 1_000_000.0
+        soon, later = onboard.progress(ride, asof + 60, asof), onboard.progress(ride, asof + 600, asof)
+        self.assertGreater(soon, ride["p0"])
+        self.assertGreater(later, soon)
+        capped = onboard.progress(ride, asof + 5 * 3600, asof)
+        self.assertEqual(capped, onboard.progress(ride, asof + 300, asof))     # never runs away on old news
+
+    def test_without_positions_the_timetable_places_the_train(self):
+        onboard = community("onboard")
+        ride = onboard.journey(self.run_for(["Departed", "Departed", "Enroute"]))     # no station coordinates
+        self.assertFalse(ride["geo"])
+        middle = (ride["behind"] + ride["arrive"]) / 2
+        self.assertAlmostEqual(onboard.progress(ride, middle, 0), .5, delta=.01)
+        self.assertEqual(onboard.progress(ride, ride["behind"] - 999, 0), 0.0)
+
+    def test_a_run_with_no_stops_or_no_stops_left_is_not_a_ride(self):
         onboard = community("onboard")
         self.assertIsNone(onboard.journey({"stations": []}))
+        self.assertIsNone(self.journey(["Departed", "Departed", "Departed"]))
+
+    def test_a_train_whose_tracker_went_quiet_is_not_one_to_ride(self):
+        onboard = community("onboard")
+        fresh, quiet = self.run_for(["Departed", "Enroute"]), self.run_for(["Departed", "Enroute"])
+        quiet["lastValTS"] = "2026-09-19T05:00:00-07:00"
+        now = datetime.fromisoformat("2026-09-19T12:30:00-07:00").timestamp()
+        self.assertTrue(onboard.live(fresh, now))
+        self.assertFalse(onboard.live(quiet, now))
+        self.assertFalse(onboard.live(dict(fresh, trainState="Predeparture"), now))
+
+    def test_the_bar_only_ever_moves_forwards(self):
+        onboard = community("onboard")
+        ride = self.journey(["Departed", "Departed", "Enroute"])
+        screen, shown = onboard.Carriage(), []
+        for now, target in ((0, .40), (1, .41), (2, .405), (3, .39), (4, .43)):
+            shown.append(screen._smooth(ride, target, now))
+        self.assertEqual(shown, sorted(shown))
+        self.assertEqual(screen._smooth(dict(ride, next=3), .10, 5), .10)   # a new stop starts a new bar
+
+    def test_lateness_reads_in_words_and_colours(self):
+        onboard = community("onboard")
+        self.assertEqual(onboard.verdict(0), ("ON TIME", onboard.GREEN))
+        self.assertEqual(onboard.verdict(12), ("12M LATE", onboard.AMBER))
+        self.assertEqual(onboard.verdict(34), ("34M LATE", onboard.RED))
+        self.assertEqual(onboard.verdict(-9), ("9M EARLY", onboard.GREEN))
+        self.assertEqual((onboard.duration(45), onboard.duration(75)), ("45M", "1H15M"))
+
+    def test_the_nearest_train_to_home_is_the_one_to_ride(self):
+        onboard = community("onboard")
+        far = dict(self.journey(["Departed", "Enroute"], position=(45.0, -120.0)), number="1")
+        near = dict(self.journey(["Departed", "Enroute"], position=(33.8, -117.9)), number="2")
+        self.assertEqual(onboard.nearest([far, near], (33.7, -117.9))["number"], "2")
+        self.assertIn(onboard.nearest([far, near], None)["number"], ("1", "2"))
 
     def test_station_names_lose_what_every_station_has(self):
         onboard = community("onboard")
@@ -446,6 +518,53 @@ class OnboardTests(unittest.TestCase):
         self.assertEqual(onboard.short("New York Penn Station"), "New York")
         self.assertEqual(onboard.short("Emeryville"), "Emeryville")
         self.assertEqual(onboard.short("Oakland-Jack London Square, CA"), "Oakland Jack London Square")
+
+    def test_no_train_running_is_an_answer_not_a_provider_error(self):
+        import asyncio
+        onboard = community("onboard")
+
+        class Quiet(onboard.Onboard):
+            async def _trains(self):
+                return "Coast Starlight", ["11"]
+
+            async def _json(self, url):
+                return {"11": [dict(self.run_for_test, trainState="Predeparture")]}
+
+            async def _stations(self):
+                return {}
+
+        provider = Quiet(type("Context", (), {"settings": {"refresh_seconds": 60, "latitude": 0, "longitude": 0}})())
+        provider.run_for_test = self.run_for(["Enroute", "Enroute"])
+
+        async def go():
+            try:
+                return await provider.fetch()
+            finally:
+                await provider.close()
+        snapshot = asyncio.run(go())
+        self.assertIsNone(snapshot.data["ride"])
+
+    def test_the_screen_draws_every_kind_of_stop_name_without_running_off_the_panel(self):
+        onboard = community("onboard")
+        for name in ("Chemult", "Los Angeles Union", "San Juan Capistrano", "Oakland-Jack London Square",
+                     "Winston-Salem"):
+            for statuses in (["Departed", "Enroute"], ["Departed", "Station"]):
+                with self.subTest(name=name, statuses=statuses):
+                    run = self.run_for(statuses + ["Enroute"], speed=0 if statuses[1] == "Station" else 55)
+                    run["stations"][statuses.index(statuses[1])]["name"] = name
+                    ride = onboard.journey(run, self.PLACES)
+                    self.assertIsNotNone(ride)
+                    now = datetime.now(timezone.utc)
+                    snapshot = Snapshot({"ride": ride, "asof": now.timestamp()}, source="amtraker")
+                    registry = PluginRegistry()
+                    registry.register(onboard.plugin)
+                    config = validate_config({"plugins": {"onboard": {}}}, registry)
+                    context = RenderContext(now, 1.0, config, {"onboard": snapshot}, Message("", ""), SystemStatus(), 1)
+                    frame = validate_frame(onboard.Carriage().render(context))
+                    self.assertIsNotNone(frame.getbbox())
+                    # nothing is drawn in the strip of rows between the words and the line, so a
+                    # name that ran off the panel or down into the train would show here
+                    self.assertEqual(frame.crop((0, 26, 128, 27)).getbbox(), None)
 
 
 @needs_rackticker
