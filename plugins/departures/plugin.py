@@ -579,17 +579,23 @@ def _track_label(track):
     return track.split("/")[0].strip() if len(track) > 3 else track
 
 
-# How the boards themselves shorten long names.
-SHORT = (("Centrale", "C.le"), ("CENTRALE", "C.LE"), ("Aeroporto", "Aerop."), ("AEROPORTO", "AEROP."),
-         ("Aéroport", "Aérop."), ("Flughafen", "Flugh."), ("Hauptbahnhof", "Hbf"), ("pályaudvar", "pu."),
-         ("Santa", "S."), ("SANTA", "S."), ("San ", "S. "), ("SAN ", "S. "))
+# How the boards themselves shorten long names, by the language station names come
+# in on that board: Italian "Santa Lucia" becomes "S. Lucia" on a Trenitalia sign,
+# but the same rule on an Amtrak board turned San Diego and Santa Ana into "S." —
+# nobody's sign does that, because those names are English, not Italian.
+SHORT = {
+    "trenitalia": (("Centrale", "C.le"), ("CENTRALE", "C.LE"), ("Aeroporto", "Aerop."), ("AEROPORTO", "AEROP."),
+                   ("Santa", "S."), ("SANTA", "S."), ("San ", "S. "), ("SAN ", "S. ")),
+    "sbb": (("Hauptbahnhof", "Hbf"), ("Flughafen", "Flugh."), ("Aéroport", "Aérop.")),
+    "mav": (("pályaudvar", "pu."),),
+}
 
 
-def _fits(text, width, mixed):
+def _fits(text, width, mixed, style_name=None):
     """The name as the board would fit it: its usual abbreviations, then whole words."""
     if text_width(text, 1, mixed) <= width:
         return text
-    for long, short in SHORT:
+    for long, short in SHORT.get(style_name, ()):
         text = text.replace(long, short)
         if text_width(text, 1, mixed) <= width:
             return text
@@ -675,7 +681,7 @@ class Board(Module):
         moment, live = board_moment(settings, zone)
         rows = self._upcoming(board, zone, settings)
         if not rows:
-            self._title(frame, name, moment, style, live, context.animation_time,
+            self._title(frame, name, moment, style, style_name, live, context.animation_time,
                         live and settings["times"] != "station")
             return frame
         scene, title, pages, heading, spoken = self._plan(rows, style_name)
@@ -690,7 +696,7 @@ class Board(Module):
         cycle = max(1.0, title + pages * PAGE_SECONDS + announcements)
         since = (t - scene) % cycle
         if since < title:
-            self._title(frame, name, moment, style, live, since,
+            self._title(frame, name, moment, style, style_name, live, since,
                         live and settings["times"] != "station")
         elif spoken and since >= title + pages * PAGE_SECONDS:
             local = since - title - pages * PAGE_SECONDS
@@ -723,8 +729,8 @@ class Board(Module):
         draw_text(frame, text, x, 16, style["dest"], mixed=True)
 
     @staticmethod
-    def _title(frame, name, moment, style, live, t, yours=False):
-        draw_text(frame, _fits(name, 128, True), 0, 0, style["accent"], mixed=True)
+    def _title(frame, name, moment, style, style_name, live, t, yours=False):
+        draw_text(frame, _fits(name, 128, True, style_name), 0, 0, style["accent"], mixed=True)
         clock = moment.strftime("%H:%M")
         draw_text(frame, clock, 0, 11, WHITE, 2, True)
         # The colon blinks, like the station clock it imitates.
@@ -767,7 +773,8 @@ class Board(Module):
             text = destination if mixed else destination.upper()
             # A name too long for its column is shortened the way the boards do it ("S. Bernardino"),
             # not scrolled: a row that moves cannot be read while you are looking for your train.
-            draw_text(layer, _fits(text, room, mixed), x, 0, RED if row["cancelled"] else style["dest"], mixed=mixed)
+            draw_text(layer, _fits(text, room, mixed, style_name), x, 0,
+                     RED if row["cancelled"] else style["dest"], mixed=mixed)
             if track:
                 _track_box(layer, track, 127, 0, style, row.get("moved"), t, column)
             frame.paste(layer.crop((0, 0, 128, 9 - rise)), (0, ROW_Y[index] + rise))
@@ -827,7 +834,8 @@ class Board(Module):
         x = _badge(frame, row["kind"], text_width(track) + 6 if track else 0, 1, style_name, row.get("color", ""))
         destination = row["destination"] if mixed else row["destination"].upper()
         clock = row["time"].strftime("%H:%M")
-        draw_text(frame, _fits(destination, 128 - x - text_width(clock) - 3, mixed), x, 1, style["dest"], mixed=mixed)
+        draw_text(frame, _fits(destination, 128 - x - text_width(clock) - 3, mixed, style_name), x, 1, style["dest"],
+                 mixed=mixed)
         draw_text(frame, clock, 128 - text_width(clock), 1, WHITE)
 
 

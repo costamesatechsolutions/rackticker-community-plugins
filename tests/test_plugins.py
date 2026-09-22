@@ -64,9 +64,17 @@ def community(name):
 class DeparturesTests(unittest.TestCase):
     def test_long_names_shorten_the_way_boards_do(self):
         departures = community("departures")
-        self.assertEqual(departures._fits("MILANO CENTRALE", 70, False), "MILANO C.LE")
+        self.assertEqual(departures._fits("MILANO CENTRALE", 70, False, "trenitalia"), "MILANO C.LE")
         self.assertEqual(departures._fits("Genève-Aéroport", 40, True), "Genève")
         self.assertEqual(departures._fits("Eger", 40, True), "Eger")
+
+    def test_american_names_are_not_run_through_italian_abbreviations(self):
+        # "Santa"/"San " -> "S." is how a Trenitalia sign shortens Santa Lucia; on an
+        # Amtrak or Metrolink board it turned San Diego and Santa Ana into just "S.",
+        # which is not a real station and not what any American sign does.
+        departures = community("departures")
+        self.assertEqual(departures._fits("San Diego", 35, True, "amtrak"), "San")
+        self.assertEqual(departures._fits("Santa Ana", 35, True, "metrolink"), "Santa")
 
     def test_paired_platforms_fit_the_column(self):
         departures = community("departures")

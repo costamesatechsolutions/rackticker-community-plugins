@@ -393,10 +393,16 @@ class Carriage(Module):
 
     @staticmethod
     def _header(frame, ride, verdict_text, colour, stale):
-        """The line you are on, and whether it is running to time."""
+        """The line you are on, where it is finally headed, and whether it is running to
+        time. Naming the destination here is what tells the strip map below it apart from
+        the route: the bar only ever runs from the last stop to the next one, and without
+        the actual destination written down, that next stop looks like the end of the
+        line, even mid-route."""
         status = "OFFLINE" if stale else verdict_text
         room = 128 - tiny_width(status) - 6
-        for title in (f"{ride['route']} {ride['number']}", ride["route"], f"TRAIN {ride['number']}"):
+        to = ride["to"]
+        to_titles = (f"{ride['route']} {ride['number']} TO {to}", f"{ride['number']} TO {to}", f"TO {to}") if to else ()
+        for title in to_titles + (f"{ride['route']} {ride['number']}", ride["route"], f"TRAIN {ride['number']}"):
             title = title.strip().upper()
             if title and tiny_width(title) <= room:
                 draw_tiny(frame, title, 1, 0, AMBER)
