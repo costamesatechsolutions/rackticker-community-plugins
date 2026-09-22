@@ -232,7 +232,11 @@ def board_label(label):
 
 
 def overflow(label):
-    return max(0, text_width(board_label(label)) - LABEL_WIDTH)
+    """How far a name runs past its column in the small font too: only then does it scroll."""
+    label = board_label(label)
+    if text_width(label) <= LABEL_WIDTH or tiny_width(label) <= LABEL_WIDTH:
+        return 0
+    return text_width(label) - LABEL_WIDTH
 
 
 def board_pages(event):
@@ -373,6 +377,9 @@ class MarketsModule(Module):
                 strip = Image.new("RGB", (LABEL_WIDTH, 7))
                 draw_text(strip, label, -round(shift), 0, color)
                 frame.paste(strip, (0, y))
+            elif text_width(label) > LABEL_WIDTH:
+                # Too long at full size: the same name in the small font, whole and still.
+                draw_tiny(frame, label, 0, y + 1, color)
             else:
                 draw_text(frame, label, 0, y, color)
             draw_text(frame, pct, 128 - text_width(pct), y, venue if leader else WHITE)

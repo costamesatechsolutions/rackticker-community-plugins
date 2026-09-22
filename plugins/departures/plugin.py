@@ -765,16 +765,9 @@ class Board(Module):
             room = 128 - x - (column + 3 if column else 0)
             destination = style["cancelled"] if row["cancelled"] else row["destination"]
             text = destination if mixed else destination.upper()
-            if text_width(text, 1, mixed) > room:
-                # Long names scroll inside their column and rest at each end.
-                extra = text_width(text, 1, mixed) - room
-                phase = (local % 6) / 6
-                shift = round(extra * min(1, max(0, (phase - .2) / .5)))
-                strip = Image.new("RGB", (room, 9))
-                draw_text(strip, text, -shift, 0, RED if row["cancelled"] else style["dest"], mixed=mixed)
-                layer.paste(strip, (x, 0))
-            else:
-                draw_text(layer, text, x, 0, RED if row["cancelled"] else style["dest"], mixed=mixed)
+            # A name too long for its column is shortened the way the boards do it ("S. Bernardino"),
+            # not scrolled: a row that moves cannot be read while you are looking for your train.
+            draw_text(layer, _fits(text, room, mixed), x, 0, RED if row["cancelled"] else style["dest"], mixed=mixed)
             if track:
                 _track_box(layer, track, 127, 0, style, row.get("moved"), t, column)
             frame.paste(layer.crop((0, 0, 128, 9 - rise)), (0, ROW_Y[index] + rise))
