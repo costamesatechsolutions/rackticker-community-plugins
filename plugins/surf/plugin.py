@@ -102,73 +102,69 @@ def face(height):
     return f"{high} FT" if low == high or low == 0 and high <= 1 else f"{low}-{high} FT"
 
 
-class Water:
-    """A row of springs, each pulling on its neighbours: the cheapest thing that
-    behaves like water. Swell is pushed in at the seaward edge and travels across,
-    so crests move, meet and break instead of sliding past as a drawn sine."""
+class Waves:
+    """A slice of sea meeting a beach, seen side on, and what swell does there.
 
-    # Slack springs that barely lose energy, so a wave crosses the whole panel
-    # instead of dying where it was made.
-    STIFFNESS, DAMPING, SPREAD = 6.0, .12, 150.0
+    Out in deep water a wave is a long, low, rounded swell. As the floor rises it slows, so
+    the crests bunch up; it stands taller, and its crest sharpens while the trough between
+    flattens. When the water under it is about as deep as the wave is high, it breaks: the
+    crest curls into foam, and what is left runs at the beach as a low, white bore that
+    climbs the sand and slides back off it. All of that is a function of the depth at each
+    column, so it is worked out once per tide and size, and each frame is just the phase.
+    The real swell period sets the pace, and real swell comes in sets, so the size of the
+    waves swells and fades a little over time."""
 
-    def __init__(self, width=128):
-        self.height = [0.0] * width
-        self.speed = [0.0] * width
-        self.clock = 0.0
+    LENGTH = 24.0           # deep-water wavelength, in columns
+    BREAK = 1.9             # a wave breaks where the water is this many wave-heights deep
 
-    def prime(self, size, wavelength=34.0):
-        """Start with a sea already running. Made from cold the panel spends the
-        first seconds of every visit flat while the first wave crosses it."""
-        for x in range(len(self.height)):
-            phase = (x - len(self.height)) / wavelength * math.tau
-            self.height[x] = math.sin(phase) * size
-            self.speed[x] = math.cos(phase) * size * 2.2
+    def __init__(self, width=WINDOW_W):
+        self.width = width
+        self.key = None
+        self.phase, self.amp, self.sharp, self.depth, self.broken = [], [], [], [], []
 
-    def push(self, index, force):
-        if 0 <= index < len(self.speed):
-            self.speed[index] += force
+    def build(self, surface, size):
+        """Per-column facts about the sea floor and the wave that runs over it."""
+        key = (round(surface * 4), round(size * 4))
+        if key == self.key:
+            return
+        self.key = key
+        deep = max(4.0, 31 - surface)
+        theta, total = [], 0.0
+        self.amp, self.sharp, self.depth, self.broken = [], [], [], []
+        for column in range(self.width):
+            floor = 31 - max(0.0, (column - SLOPE_START) * SLOPE)          # the sand's top edge here
+            depth = max(0.0, floor - surface)                              # water above it at rest
+            shoal = 1 - min(1.0, depth / deep)                             # 0 far out, 1 at the shore
+            # The wave shortens as it slows over the rising floor: crests bunch towards the beach.
+            total += math.tau / self.LENGTH * (1 + 1.6 * shoal)
+            height = size * (1 + 1.3 * shoal)
+            limit = self.BREAK * height
+            broken = depth < limit
+            if broken:              # past the break what is left is a bore, dying as the water shallows
+                height *= .3 + .7 * depth / limit
+            theta.append(total)
+            self.amp.append(height)
+            self.sharp.append(.08 + .45 * shoal)
+            self.depth.append(depth)
+            self.broken.append(broken)
+        self.phase = theta
 
-    def make_waves(self, period, size):
-        """Hold the seaward edge rising and falling: a wavemaker at the end of the
-        tank. Swell that took fifteen seconds to arrive is not worth watching, so
-        the real period sets the pace rather than the clock."""
-        beat = min(4.0, max(1.4, period / 4))
-        self.height[-1] = math.sin(self.clock / beat * math.tau) * size
-        self.height[-2] = math.sin((self.clock - .05) / beat * math.tau) * size
-
-    def step(self, dt, period, size):
-        # Small fixed steps: one long frame must not blow the springs apart.
-        dt = min(dt, .1)
-        while dt > 0:
-            slice_dt = min(dt, 1 / 60)
-            dt -= slice_dt
-            self.clock += slice_dt
-            height, speed = self.height, self.speed
-            last = len(height) - 1
-            for i in range(len(height)):
-                speed[i] += (-self.STIFFNESS * height[i] - self.DAMPING * speed[i]) * slice_dt
-            # Water moves sideways as well as up: each column drags its neighbours.
-            flow = [0.0] * len(height)
-            for i in range(len(height)):
-                left = height[i - 1] if i else height[0]
-                right = height[i + 1] if i < last else height[last]
-                flow[i] = (left + right - 2 * height[i]) * self.SPREAD * slice_dt
-            for i in range(len(height)):
-                speed[i] += flow[i]
-                height[i] += speed[i] * slice_dt
-            self.make_waves(period, size)
-
-    def swell(self, period, size):
-        """One set coming in from the sea: a push at the edge every period."""
-        return self.clock % max(3.0, period) < 1 / 30
+    def surface(self, column, t, period, surface):
+        """The water's top edge at this column, in rows, and how much it is breaking (0 to 1)."""
+        omega = math.tau / period
+        # Sets: the swell builds and fades over a few waves, and not evenly along the beach.
+        sets = .8 + .2 * math.sin(t * omega / 3.7 + column * .045)
+        angle = self.phase[column] - omega * t
+        sharp = self.sharp[column]
+        lift = (math.cos(angle) + sharp * math.cos(2 * angle)) / (1 + sharp)
+        return surface - self.amp[column] * sets * lift, lift
 
 
 class Report(Module):
     name = "surf"
 
     def __init__(self):
-        self.water = Water(WINDOW_W)
-        self.last = None
+        self.waves = Waves()
 
     def refresh_interval(self, context):
         return 1 / context.config["display"]["fps"]
@@ -185,14 +181,8 @@ class Report(Module):
             draw_text(frame, "Surf", 2, 12, GREY, mixed=True)
             return frame
         t = context.animation_time
-        # The sea keeps running between visits, but a jump in time must not explode it.
-        first = self.last is None
-        dt = 1 / 30 if first or not 0 < t - self.last < .5 else t - self.last
-        self.last = t
-        if first:
-            self.water.prime(self._size(surf) / 2, 16.0)
-        level = self._level(surf.get("tide"))
-        self._sea(frame, surf, dt, level)
+        level = self._level(surf.get("tide"), context.now.replace(tzinfo=None))
+        self._sea(frame, surf, t, level)
         # Everything to read is on the left, on black, clear of the water.
         draw_text(frame, surf["spot"], 0, 0, AMBER, mixed=True)
         if surf.get("water") is not None:
@@ -224,33 +214,47 @@ class Report(Module):
         """How tall the waves are drawn, in rows: sized by the real surf."""
         return min(5.0, 1.6 + (surf.get("height") or 1) * .7)
 
-    def _sea(self, frame, surf, dt, level=None):
-        """A slice of the real thing: swell running in from the left, the beach rising
-        on the right, and the waterline sitting where the real tide has put it."""
-        size = self._size(surf)
-        period = max(5.0, min(20.0, surf.get("period") or 10))
-        water = self.water
-        water.step(dt, period, size)
+    def _sea(self, frame, surf, t, level=None):
+        """A slice of the real thing: swell coming in from the left, steepening and breaking on
+        the beach rising on the right, and the waterline sitting where the real tide has put it."""
+        size = self._size(surf) * .7
+        # The real period sets the pace, but a swell that takes fifteen seconds to arrive is
+        # not worth watching: the picture keeps to between four and a half and nine.
+        period = max(4.5, min(9.0, (surf.get("period") or 10) * .6))
         # Low tide leaves the water low and the beach wide; high tide floods up the slope.
         surface = 16.5 - ((.5 if level is None else level) - .5) * 6
+        waves = self.waves
+        waves.build(surface, size)
         top = frame.load()
         for column in range(WINDOW_W):
             x = WINDOW_X + column
             sand = 31 - max(0.0, (column - SLOPE_START) * SLOPE)          # the beach's top edge here
-            wave = surface - water.height[WINDOW_W - 1 - column]           # the water's top edge here
+            wave, lift = waves.surface(column, t, period, surface)
             water_row, sand_row = round(wave), round(sand)
             for y in range(max(WINDOW_TOP, min(water_row, sand_row)), 32):
                 if y >= sand_row:
                     # Sand the water has just left is wet, and darker for it.
                     top[x, y] = WET_SAND if y - sand_row < 2 and water_row < sand_row + 2 else SAND
                 else:
-                    depth = y - water_row
-                    top[x, y] = WATER[min(len(WATER) - 1, depth)]
-            if water_row < sand_row and water_row >= WINDOW_TOP:
-                # Foam on the crest, and a white edge where the water meets the sand.
-                climb = -water.speed[WINDOW_W - 1 - column]
-                if climb > size * 1.4 or sand_row - water_row <= 1:
+                    top[x, y] = WATER[min(len(WATER) - 1, y - water_row)]
+            if water_row >= sand_row or water_row < WINDOW_TOP:
+                continue
+            if waves.broken[column]:
+                # Breaking: white water. The crest of the wave is foam and the face behind it
+                # is streaked with it, running towards the shore.
+                if lift > -.2 or sand_row - water_row <= 1:
                     top[x, water_row] = FOAM_WHITE
+                    if lift > .55 and water_row - 1 >= WINDOW_TOP:       # the lip, thrown forward
+                        top[x, water_row - 1] = FOAM
+                        if x + 1 < 128:
+                            top[x + 1, water_row - 1] = FOAM_WHITE
+                for streak in (1, 2):
+                    if water_row + streak < sand_row and (column * 3 + int(t * 5) + streak * 2) % 5 == 0:
+                        top[x, water_row + streak] = FOAM
+            elif lift > .8:
+                top[x, water_row] = WATER[0]                             # a bright, unbroken crest
+            elif sand_row - water_row <= 1:
+                top[x, water_row] = FOAM_WHITE
 
     @staticmethod
     def _level(tide, now=None):

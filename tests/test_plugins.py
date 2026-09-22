@@ -569,34 +569,125 @@ class OnboardTests(unittest.TestCase):
 
 @needs_rackticker
 class SurfWaterTests(unittest.TestCase):
-    """The sea is simulated, so it has to stay a sea for as long as the rack is on."""
+    """The sea is a function of depth and time, so it is the same sea however long the rack has been on."""
 
-    def test_the_water_stays_bounded_for_hours(self):
+    def waves(self, size=2.0, surface=16.5):
         surf = community("surf")
-        water = surf.Water()
-        water.prime(3.0)
-        for _ in range(30 * 60 * 30):        # half an hour at 30 fps
-            water.step(1 / 30, 13, 3.0)
-        self.assertTrue(all(abs(h) < 40 for h in water.height), "the springs blew apart")
-        self.assertTrue(all(h == h for h in water.height), "the water became NaN")
+        waves = surf.Waves()
+        waves.build(surface, size)
+        return surf, waves
 
-    def test_a_long_gap_between_frames_does_not_explode_it(self):
-        """Coming back to this screen after an hour must not arrive as a tidal wave."""
-        surf = community("surf")
-        water = surf.Water()
-        water.prime(2.0)
-        water.step(3600, 13, 2.0)
-        self.assertTrue(all(abs(h) < 40 for h in water.height))
+    def crests(self, waves, t, surface=16.5, period=8.0):
+        rows = [waves.surface(c, t, period, surface)[0] for c in range(waves.width)]
+        return [c for c in range(1, waves.width - 1) if rows[c] < rows[c - 1] and rows[c] <= rows[c + 1]
+                and rows[c] < surface - .3]
 
-    def test_waves_actually_move(self):
+    def test_the_water_stays_finite_however_long_it_has_run(self):
+        surf, waves = self.waves(3.0)
+        for hours in (0, 1, 24, 24 * 365):
+            for column in range(waves.width):
+                row, lift = waves.surface(column, hours * 3600.0, 13, 16.5)
+                self.assertTrue(-5 < row < 40 and -1.5 < lift < 1.5, (hours, column, row, lift))
+
+    def test_crests_travel_towards_the_beach(self):
+        surf, waves = self.waves(2.5)
+        before = self.crests(waves, 10.0)
+        after = self.crests(waves, 10.4)
+        self.assertTrue(before and after)
+        # every crest on the way in is a little further towards the beach a moment later
+        for crest in before:
+            nearest = min(after, key=lambda c: abs(c - (crest + 1)))
+            self.assertGreaterEqual(nearest, crest, "a crest went backwards, out to sea")
+
+    def test_waves_stand_taller_and_bunch_up_as_the_water_shallows(self):
+        surf, waves = self.waves(2.0)
+        self.assertGreater(max(waves.amp[25:32]), max(waves.amp[:8]) * 1.5)
+        gaps = [b - a for a, b in zip(waves.phase, waves.phase[1:])]
+        self.assertGreater(gaps[28], gaps[2] * 1.4, "the wave did not shorten over the rising floor")
+
+    def test_they_break_near_the_beach_and_not_out_at_sea(self):
+        surf, waves = self.waves(2.0)
+        self.assertFalse(any(waves.broken[:10]))
+        self.assertTrue(any(waves.broken[26:34]))
+
+    def test_a_screen_with_a_wave_running_draws_white_water(self):
         surf = community("surf")
-        water = surf.Water()
-        water.prime(3.0)
-        before = list(water.height)
-        for _ in range(15):
-            water.step(1 / 30, 13, 3.0)
-        moved = sum(1 for a, b in zip(before, water.height) if abs(a - b) > .05)
-        self.assertGreater(moved, 40, "the sea is standing still")
+        registry = PluginRegistry()
+        registry.register(surf.plugin)
+        config = validate_config({"plugins": {"surf": {}}}, registry)
+        data = {"spot": "Huntington Pier", "height": 3.0, "period": 10, "direction": 225, "water": 74,
+                "tide": {"high": True, "time": "2026-09-21 19:54", "then": "2026-09-22 02:06"}}
+        screen = surf.Report()
+        seen, foam = set(), 0
+        for frame in range(240):
+            context = RenderContext(datetime(2026, 9, 21, 16, 0), frame / 30, config, {"surf": Snapshot(data)},
+                                    Message("", ""), SystemStatus(), 1)
+            picture = validate_frame(screen.render(context))
+            seen.add(picture.crop((88, 8, 128, 32)).tobytes())
+            foam += any(picture.getpixel((x, y)) == surf.FOAM_WHITE for x in range(88, 128) for y in range(8, 32))
+        self.assertGreater(len(seen), 150, "the sea barely changed from frame to frame")
+        self.assertGreater(foam, 100, "no white water")
+
+
+@needs_rackticker
+class TankWaterTests(unittest.TestCase):
+    def test_the_surface_moves_smoothly_and_stays_in_the_tank_however_long_it_runs(self):
+        surface = community("tanks").Surface(20, 7)
+        worst, previous = 0.0, None
+        for _ in range(30 * 60 * 20):                       # twenty minutes at 30 fps
+            surface.step(1 / 30)
+            self.assertTrue(all(abs(h) < 4 for h in surface.height))
+            if previous:
+                worst = max(worst, max(abs(a - b) for a, b in zip(previous, surface.height)))
+            previous = list(surface.height)
+        self.assertLess(worst, .6, "the water jumped between frames")
+
+    def test_a_bump_sets_it_sloshing_and_it_settles(self):
+        surface = community("tanks").Surface(20, 3)
+        surface.next_bump = 1e9
+        surface.step(1 / 30)
+        calm = max(abs(h) for h in surface.height)
+        surface.bumps.append((surface.clock, 1, 1.5))
+        peak = 0.0
+        for _ in range(60):
+            surface.step(1 / 30)
+            peak = max(peak, max(abs(h) for h in surface.height))
+        for _ in range(30 * 9):
+            surface.step(1 / 30)
+        self.assertGreater(peak, calm + .5)
+        self.assertFalse(surface.bumps, "the slosh never died away")
+
+
+@needs_rackticker
+class AnalyserTests(unittest.TestCase):
+    def run_it(self, seconds, playing=True):
+        analyser = community("now_playing").Analyser(10, 6)
+        frames = []
+        for frame in range(int(seconds * 30)):
+            t = frame / 30
+            analyser.step(t, t * 2.2, playing, 42)
+            frames.append((list(analyser.levels), list(analyser.peaks)))
+        return frames
+
+    def test_bars_stay_in_range_bloom_rather_than_flash_and_neighbours_move_together(self):
+        frames = self.run_it(30)
+        for levels, peaks in frames:
+            self.assertTrue(all(0 <= v <= 1 for v in levels))
+            self.assertTrue(all(p >= v - 1e-9 for p, v in zip(peaks, levels)))
+        rises = [max(b - a for a, b in zip(before[0], after[0])) for before, after in zip(frames, frames[1:])]
+        self.assertLess(max(rises), .9, "a bar jumped from nothing to full in a single frame")
+        gaps = [abs(a - b) for levels, _ in frames[60:] for a, b in zip(levels, levels[1:])]
+        self.assertLess(sum(gaps) / len(gaps), .3, "neighbouring bars were unrelated")
+
+    def test_a_falling_bar_speeds_up_like_a_weight(self):
+        analyser = community("now_playing").Analyser(10, 6)
+        analyser.levels = [1.0] * 10
+        drops = []
+        for frame in range(30):
+            before = analyser.levels[0]
+            analyser.step(frame / 30, 0.0, False, 1)
+            drops.append(before - analyser.levels[0])
+        self.assertGreater(drops[10], drops[1] * 1.5)
 
 
 @needs_rackticker

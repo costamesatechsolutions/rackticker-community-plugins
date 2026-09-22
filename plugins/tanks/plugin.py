@@ -123,43 +123,43 @@ class Levels(Provider):
 
 
 class Surface:
-    """A row of springs: each column pulls toward rest and toward its neighbours,
-    so a push at one end runs across as a wave and dies away."""
+    """Water in a tank, moving the way it does: it rocks slowly from side to side, a fine
+    ripple runs across the top, and now and then something bumps the tank and sets the whole
+    surface sloshing, which dies away over a few seconds. It is a function of time, so it
+    never drifts, blows up or goes flat, however long the rack has been on."""
 
     def __init__(self, width, seed):
         self.width = width
         self.height = [0.0] * width
-        self.speed = [0.0] * width
         self.rng = random.Random(seed)
         self.clock = 0.0
-        self.bubbles = []
+        self.bumps = []                 # (when, direction, strength)
+        self.bubbles = []               # [x, rise, wobble phase]
+        self.rock = self.rng.uniform(0, 6.3)
+        self.next_bump = self.rng.uniform(4, 9)
 
     def step(self, dt):
-        for _ in range(max(1, round(dt / (1 / 60)))):
-            self.clock += 1 / 60
-            if self.rng.random() < .012:   # something bumps the tank
-                self.speed[self.rng.randrange(self.width)] += self.rng.uniform(-3.5, 3.5)
-            tilt = math.sin(self.clock * .9) * .12
-            for i in range(self.width):
-                target = tilt * (i - self.width / 2)
-                self.speed[i] += (target - self.height[i]) * .06
-                self.speed[i] *= .985
-            for _ in range(2):
-                spread = [0.0] * self.width
-                for i in range(self.width):
-                    if i:
-                        spread[i] += (self.height[i - 1] - self.height[i]) * .2
-                    if i < self.width - 1:
-                        spread[i] += (self.height[i + 1] - self.height[i]) * .2
-                for i in range(self.width):
-                    self.speed[i] += spread[i]
-            for i in range(self.width):
-                self.height[i] += self.speed[i] * .5
-            if self.rng.random() < .05:
-                self.bubbles.append([self.rng.uniform(1, self.width - 2), 0.0])
-            for bubble in self.bubbles:
-                bubble[1] += .35
-            self.bubbles = [bubble for bubble in self.bubbles if bubble[1] < 40]
+        self.clock += dt
+        if self.clock >= self.next_bump:
+            self.bumps.append((self.clock, self.rng.choice((-1, 1)), self.rng.uniform(.8, 1.6)))
+            self.next_bump = self.clock + self.rng.uniform(5, 11)
+        self.bumps = [bump for bump in self.bumps if self.clock - bump[0] < 7]
+        width, t = self.width, self.clock
+        for i in range(width):
+            across = (i + .5) / width * math.pi
+            # Rocking from side to side: the surface tilts about its middle.
+            rock = math.sin(t * .8 + self.rock) * .55 * math.cos(across)
+            ripple = math.sin(i * .62 - t * 2.6) * .22 + math.sin(i * .37 + t * 1.7 + self.rock) * .18
+            slosh = 0.0
+            for when, direction, strength in self.bumps:
+                age = t - when
+                slosh += direction * strength * math.exp(-age * .75) * math.sin(age * 3.4) * math.cos(across)
+            self.height[i] = rock + ripple + slosh
+        if self.rng.random() < dt * 2.2:
+            self.bubbles.append([self.rng.uniform(1, width - 2), 0.0, self.rng.uniform(0, 6.3)])
+        for bubble in self.bubbles:
+            bubble[1] += dt * 11
+        self.bubbles = [bubble for bubble in self.bubbles if bubble[1] < 40]
 
 
 def draw_tank(frame, surface, x, top, width, height, level, colors):
@@ -179,10 +179,11 @@ def draw_tank(frame, surface, x, top, width, height, level, colors):
             pixels[x + column, y] = shade
         if top <= surface_y < top + height:
             pixels[x + column, max(top, int(surface_y))] = tuple(min(255, c + 70) for c in light)
-    for bx, rise in surface.bubbles:
+    for bx, rise, wobble in surface.bubbles:
         y = round(top + height - 1 - rise)
-        if y > rest + surface.height[int(bx)] + 1 and top <= y < top + height:
-            pixels[x + int(bx), y] = tuple(min(255, c + 90) for c in light)
+        column = max(0, min(width - 1, int(bx + math.sin(rise * .5 + wobble) * .8)))
+        if y > rest + surface.height[column] + 1 and top <= y < top + height:
+            pixels[x + column, y] = tuple(min(255, c + 90) for c in light)
 
 
 class TankScreen(Module):

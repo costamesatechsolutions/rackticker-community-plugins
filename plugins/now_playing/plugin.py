@@ -312,6 +312,8 @@ class Analyser:
         self.levels = [0.0] * bars
         self.peaks = [0.0] * bars
         self.held = [0.0] * bars
+        self.fall = [0.0] * bars        # how fast a bar is dropping: it speeds up like a weight
+        self.drop = [0.0] * bars        # and so does its cap
         self.last = None
 
     def step(self, t, beat, playing, song_seed):
@@ -323,6 +325,7 @@ class Analyser:
         kick = math.exp(-phase * 6)
         snare = math.exp(-phase * 7) if int(beat) % 2 == 1 else 0
         hat = math.exp(-((beat * 2) % 1) * 9)
+        targets = []
         for band in range(self.bars):
             if playing:
                 share = band / (self.bars - 1)
@@ -333,14 +336,29 @@ class Analyser:
                 target = min(1.0, target * (1.05 - .3 * share))
             else:
                 target = 0.0
-            # Up at once, down smoothly, as a real analyser's ballistics.
-            self.levels[band] = target if target > self.levels[band] else max(target, self.levels[band] - 1.3 * dt)
+            targets.append(target)
+        # A real spectrum is one continuous curve, not ten unrelated bars: each band is pulled
+        # towards its neighbours, so the tops flow into one another like a wave.
+        last = self.bars - 1
+        smooth = [(targets[max(0, band - 1)] + 2 * targets[band] + targets[min(last, band + 1)]) / 4
+                  for band in range(self.bars)]
+        for band, target in enumerate(smooth):
+            level = self.levels[band]
+            if target > level:
+                # A quick rise, not an instant one, so a hit blooms instead of flashing.
+                self.levels[band] = level + (target - level) * min(1.0, dt * 24)
+                self.fall[band] = 0.0
+            else:
+                # Then it falls the way a weight does: slowly at first, faster as it goes.
+                self.fall[band] += 2.6 * dt
+                self.levels[band] = max(target, level - self.fall[band] * dt)
             if self.levels[band] >= self.peaks[band]:
-                self.peaks[band], self.held[band] = self.levels[band], .3
+                self.peaks[band], self.held[band], self.drop[band] = self.levels[band], .3, 0.0
             elif self.held[band] > 0:
                 self.held[band] -= dt
             else:
-                self.peaks[band] = max(self.levels[band], self.peaks[band] - 1.8 * dt)
+                self.drop[band] += 3.4 * dt
+                self.peaks[band] = max(self.levels[band], self.peaks[band] - self.drop[band] * dt)
 
     def draw(self, frame, x, bottom):
         """Segments one LED tall with a dark line between: green, then yellow, then red."""
