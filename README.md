@@ -30,6 +30,7 @@ plugin's folder link. They also show up in the built-in browser, which reads
 | [LED sign](plugins/ticker_wall) | Programmable LED sign: the storefront kind that spells words out of flying pixels, drops letters in, spins slot reels and chases marquee bulbs. | [folder](https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/ticker_wall) |
 | [Freeway traffic](plugins/traffic) | Freeway traffic board: live CHP incidents on nearby freeways, shown as a freeway shield, what happened, where, and how long ago. | [folder](https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/traffic) |
 | [Data from a link](plugins/url_data) | Any number or text from a JSON web address, shown as a big clean card. No code: paste a link and the field to show. | [folder](https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/url_data) |
+| [Video player](plugins/video_player) | Loops a short clip on the panel: a local file, a direct video URL, or any live stream ffmpeg can open (mp4, GIF, HLS, RTSP/RTMP). Ships playing a free demo clip out of the box. | [folder](https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/video_player) |
 
 **Paste the plugin's folder URL, not this repository's root URL.** Each folder holds
 its own `plugin.json`, code, licence, notes and previews.

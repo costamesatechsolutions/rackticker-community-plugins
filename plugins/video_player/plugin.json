@@ -1,0 +1,9 @@
+{
+  "id": "video_player",
+  "name": "Video player",
+  "entry": "plugin.py",
+  "description": "Loops a short clip on the panel from a local file, a direct video URL, or any live stream ffmpeg can open.",
+  "author": "Costa Mesa Tech Solutions",
+  "version": "1.0.0",
+  "homepage": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/video_player"
+}
