@@ -28,8 +28,13 @@ FRAME_BYTES = WIDTH * HEIGHT * 3
 # decode) for an 8 s clip; give it real headroom rather than call that a failure.
 DECODE_TIMEOUT_MARGIN = 60  # seconds of ffmpeg startup/network slack on top of the clip itself
 INLINE_BUDGET = 4.5         # keep our own fetch() well under the 6 s the host gives providers
-YOUTUBE_LIST_TIMEOUT = 30   # listing a channel's uploads (metadata only, no formats resolved)
-YOUTUBE_RESOLVE_TIMEOUT = 20  # resolving the one chosen video to a direct stream URL
+# yt-dlp is slow on a Pi 3A+: listing a channel took 21-58 s and resolving one video
+# 60 s (43 s of it CPU), so these are generous. A clip that's still on its way keeps
+# the previous one on screen, so slow only means a later switch, never a blank panel.
+YOUTUBE_LIST_TIMEOUT = 120    # listing a channel's uploads (metadata only, no formats resolved)
+YOUTUBE_RESOLVE_TIMEOUT = 150  # resolving the one chosen video to a direct stream URL
+YOUTUBE_LIST_TTL = 3600       # reuse a channel's upload list for an hour instead of re-listing each turn
+RETRY_AFTER = 60              # after a failed capture, wait this long before trying the same thing again
 
 
 def sources(value):
@@ -111,19 +116,25 @@ async def _run_ytdlp(ytdlp, args, timeout):
     return stdout.decode("utf-8", "replace"), None
 
 
-async def _youtube_capture(ffmpeg, ytdlp, query, clip_seconds, fps, fit):
+async def _youtube_capture(ffmpeg, ytdlp, query, clip_seconds, fps, fit, listings):
     """One random recent upload from a channel or search, captured exactly like any
     other source. Two cheap yt-dlp calls: a flat, metadata-only listing, then
     resolving just the one chosen video to a direct playable URL — nothing is
-    downloaded or saved, and video-only (we strip audio anyway) skips muxing."""
-    out, error = await _run_ytdlp(ytdlp, ["--flat-playlist", "--print", "id", "--playlist-end", "20",
-                                          "--no-warnings", "--socket-timeout", "15", _channel_url(query)],
-                                  YOUTUBE_LIST_TIMEOUT)
-    if error:
-        return None, 0, error
-    ids = [line.strip() for line in out.splitlines() if line.strip()]
-    if not ids:
-        return None, 0, "No videos found for that channel or search"
+    downloaded or saved, and video-only (we strip audio anyway) skips muxing. The
+    listing is cached in `listings` so later turns only pay for the resolve."""
+    cached = listings.get(query)
+    if cached and time.monotonic() - cached[1] < YOUTUBE_LIST_TTL:
+        ids = cached[0]
+    else:
+        out, error = await _run_ytdlp(ytdlp, ["--flat-playlist", "--print", "id", "--playlist-end", "20",
+                                              "--no-warnings", "--socket-timeout", "15", _channel_url(query)],
+                                      YOUTUBE_LIST_TIMEOUT)
+        if error:
+            return None, 0, error
+        ids = [line.strip() for line in out.splitlines() if line.strip()]
+        if not ids:
+            return None, 0, "No videos found for that channel or search"
+        listings[query] = (ids, time.monotonic())
     out, error = await _run_ytdlp(ytdlp, ["-f", "bv*[height<=240]/bv*/best", "-g", "--no-playlist",
                                           "--no-warnings", "--socket-timeout", "15",
                                           f"https://www.youtube.com/watch?v={random.choice(ids)}"],
@@ -142,6 +153,7 @@ class VideoProvider(Provider):
         self.frames, self.fps, self.count, self.key, self.error = None, None, None, None, None
         self.task, self.task_key = None, None
         self.mode, self.playlist, self.index, self.rotated_at = "source", (), 0, 0.0
+        self.pick, self.listings, self.failed_key, self.failed_at = 0, {}, None, 0.0
 
     async def fetch(self):
         settings = self.context.settings
@@ -160,15 +172,20 @@ class VideoProvider(Provider):
         if playlist != self.playlist or mode != self.mode:
             self.mode, self.playlist, self.index, self.rotated_at = mode, playlist, 0, now
         # A youtube channel always rotates to a fresh pick, even with just one channel;
-        # a fixed list of direct sources only rotates when there's more than one.
-        elif now - self.rotated_at >= watch and (mode == "youtube" or len(playlist) > 1):
+        # a fixed list of direct sources only rotates when there's more than one. Never
+        # while a capture is still in flight: on a slow device that would cancel every
+        # pick before it lands, and nothing new would ever play.
+        elif (now - self.rotated_at >= watch and self.task is None
+              and (mode == "youtube" or len(playlist) > 1)):
             self.index = (self.index + 1) % len(playlist)
+            self.pick += 1
             self.rotated_at = now
 
         entry = playlist[self.index]
-        nonce = self.rotated_at if mode == "youtube" else None
+        nonce = self.pick if mode == "youtube" else None
         key = _settings_key(entry, nonce, settings)
-        if key != self.key and key != self.task_key:
+        retry_wait = key == self.failed_key and now - self.failed_at < RETRY_AFTER
+        if key != self.key and key != self.task_key and not retry_wait:
             if self.task and not self.task.done():
                 self.task.cancel()
             ffmpeg = shutil.which("ffmpeg")
@@ -179,8 +196,9 @@ class VideoProvider(Provider):
                 self.error, self.task, self.task_key = "yt-dlp is not installed on this device", None, None
             else:
                 entry_arg, _nonce, clip_seconds, fps, fit = key
-                coro = (_youtube_capture(ffmpeg, ytdlp, entry_arg, clip_seconds, fps, fit) if mode == "youtube"
-                       else _capture(ffmpeg, entry_arg, clip_seconds, fps, fit))
+                coro = (_youtube_capture(ffmpeg, ytdlp, entry_arg, clip_seconds, fps, fit, self.listings)
+                        if mode == "youtube"
+                        else _capture(ffmpeg, entry_arg, clip_seconds, fps, fit))
                 self.task = asyncio.create_task(coro)
                 self.task_key = key
 
@@ -189,10 +207,12 @@ class VideoProvider(Provider):
             if self.task.done():
                 frames, count, error = self.task.result()
                 if error:
-                    self.error = error
+                    self.error, self.failed_key, self.failed_at = error, self.task_key, time.monotonic()
                 else:
                     self.frames, self.count, self.fps = frames, count, self.task_key[3]
                     self.key, self.error = self.task_key, None
+                    # Watch time counts from when the clip actually shows, not from when it was asked for.
+                    self.rotated_at = time.monotonic()
                 self.task, self.task_key = None, None
 
         if self.frames is None:
