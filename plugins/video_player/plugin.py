@@ -60,11 +60,25 @@ def _settings_key(entry, nonce, settings):
             round(float(settings["fps"]), 1), settings["fit"])
 
 
+async def _reap(process):
+    """Kill a child that's still running — timed out, or its task was cancelled when
+    the source changed. Without this a stalled ffmpeg outlived its task for good."""
+    if process.returncode is None:
+        try:
+            process.kill()
+        except ProcessLookupError:
+            pass
+        await asyncio.shield(process.wait())
+
+
 async def _capture(ffmpeg, source, clip_seconds, fps, fit):
     """Run as its own asyncio task: shells out to ffmpeg and hands back raw frames.
     Never raises — errors come back as the last tuple element, so a slow or broken
     source never looks like an unhandled crash to the caller."""
-    args = ["-hide_banner", "-loglevel", "error", "-nostdin",
+    # A network read that goes quiet (googlevideo sometimes just stops sending) fails
+    # after 20 s instead of hanging forever; rw_timeout only exists for network inputs.
+    network = ["-rw_timeout", "20000000"] if source.startswith(("http://", "https://", "rtmp://")) else []
+    args = ["-hide_banner", "-loglevel", "error", "-nostdin", *network,
             "-t", f"{clip_seconds}", "-i", source, "-an", "-sn",
             "-vf", f"fps={fps},{_scale_filter(fit)},format=rgb24",
             "-f", "rawvideo", "-pix_fmt", "rgb24", "pipe:1"]
@@ -76,9 +90,9 @@ async def _capture(ffmpeg, source, clip_seconds, fps, fit):
     try:
         stdout, stderr = await asyncio.wait_for(process.communicate(), clip_seconds + DECODE_TIMEOUT_MARGIN)
     except asyncio.TimeoutError:
-        process.kill()
-        await process.wait()
         return None, 0, "Timed out opening or decoding that source"
+    finally:
+        await _reap(process)
     if process.returncode != 0:
         lines = stderr.decode("utf-8", "replace").strip().splitlines()
         return None, 0, (lines[-1][:200] if lines else f"ffmpeg exited with status {process.returncode}")
@@ -107,9 +121,9 @@ async def _run_ytdlp(ytdlp, args, timeout):
     try:
         stdout, stderr = await asyncio.wait_for(process.communicate(), timeout)
     except asyncio.TimeoutError:
-        process.kill()
-        await process.wait()
         return None, "Timed out talking to YouTube"
+    finally:
+        await _reap(process)
     if process.returncode != 0:
         lines = stderr.decode("utf-8", "replace").strip().splitlines()
         return None, (lines[-1][:200] if lines else "yt-dlp failed")
