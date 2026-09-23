@@ -1,5 +1,7 @@
 """Video player: loops a short clip captured with ffmpeg (a local file, a direct
-video URL, or a live stream ffmpeg can open) at panel resolution.
+video URL, or a live stream ffmpeg can open) at panel resolution. Give it more
+than one source and it becomes a chill channel, cycling to the next clip every
+watch_seconds — the display never just glimpses one and cuts away.
 
 ffmpeg decodes once into a raw RGB buffer that render() just slices — decoding
 never happens on the render thread. A clip is intentionally short (seconds, not
@@ -10,6 +12,7 @@ from __future__ import annotations
 
 import asyncio
 import shutil
+import time
 
 from PIL import Image
 
@@ -22,6 +25,12 @@ DECODE_TIMEOUT_MARGIN = 60  # seconds of ffmpeg startup/network slack on top of 
 INLINE_BUDGET = 4.5         # keep our own fetch() well under the 6 s the host gives providers
 
 
+def sources(value):
+    """One or more clips, comma separated (edited as chips in Settings): a chill
+    channel that cycles to the next after watch_seconds, instead of just one clip."""
+    return [part.strip() for part in str(value).split(",") if part.strip()]
+
+
 def _scale_filter(fit):
     if fit == "stretch":
         return f"scale={WIDTH}:{HEIGHT}"
@@ -31,8 +40,8 @@ def _scale_filter(fit):
     return f"scale={WIDTH}:{HEIGHT}:force_original_aspect_ratio=increase,crop={WIDTH}:{HEIGHT}"  # cover
 
 
-def _settings_key(settings):
-    return (str(settings["source"]).strip(), round(float(settings["clip_seconds"]), 1),
+def _settings_key(source, settings):
+    return (source, round(float(settings["clip_seconds"]), 1),
             round(float(settings["fps"]), 1), settings["fit"])
 
 
@@ -69,17 +78,27 @@ class VideoProvider(Provider):
         self.context = context
         self.frames, self.fps, self.count, self.key, self.error = None, None, None, None, None
         self.task, self.task_key = None, None
+        self.playlist, self.index, self.rotated_at = (), 0, 0.0
 
     async def fetch(self):
         settings = self.context.settings
-        source = str(settings["source"]).strip()
-        if not source:
+        playlist = sources(settings["source"])
+        if not playlist:
             if self.task and not self.task.done():
                 self.task.cancel()
             self.frames = self.fps = self.count = self.key = self.error = self.task = self.task_key = None
+            self.playlist, self.index = (), 0
             return Snapshot(None, source="video_player")
 
-        key = _settings_key(settings)
+        now = time.monotonic()
+        watch = float(settings["watch_seconds"])
+        if playlist != self.playlist:
+            self.playlist, self.index, self.rotated_at = playlist, 0, now
+        elif len(playlist) > 1 and now - self.rotated_at >= watch:
+            self.index = (self.index + 1) % len(playlist)
+            self.rotated_at = now
+
+        key = _settings_key(playlist[self.index], settings)
         if key != self.key and key != self.task_key:
             if self.task and not self.task.done():
                 self.task.cancel()
@@ -115,7 +134,7 @@ class VideoPlayer(Module):
     name = "video_player"
 
     def available(self, context):
-        return bool(str(context.config["plugins"][self.name]["source"]).strip())
+        return bool(sources(context.config["plugins"][self.name]["source"]))
 
     def refresh_interval(self, context):
         return 1 / context.config["display"]["fps"]
@@ -126,11 +145,10 @@ class VideoPlayer(Module):
         return raw % data["count"] if settings["loop"] else min(raw, data["count"] - 1)
 
     def hold(self, context):
+        # Ask the playlist to stay put for watch_seconds so a visit is actually long
+        # enough to watch something, not just a glimpse before it moves on.
         settings = context.config["plugins"][self.name]
-        snap = context.snapshots.get(self.name)
-        if settings["loop"] or not snap or not snap.data:
-            return False
-        return context.animation_time < snap.data["count"] / snap.data["fps"]
+        return context.animation_time < float(settings["watch_seconds"])
 
     def render(self, context):
         frame = new_frame()
@@ -149,7 +167,9 @@ def validate(settings):
         raise ValueError("clip_seconds must be 2-30")
     if not 2 <= float(settings["fps"]) <= 20:
         raise ValueError("fps must be 2-20")
-    if len(settings["source"]) > 500:
+    if not 5 <= float(settings["watch_seconds"]) <= 60:
+        raise ValueError("watch_seconds must be 5-60")
+    if len(settings["source"]) > 900:
         raise ValueError("source is too long")
 
 
@@ -163,20 +183,26 @@ DEMO_SOURCE = "https://test-streams.mux.dev/x36xhzz/url_2/193039199_mp4_h264_aac
 
 plugin = Plugin(
     "video_player", "Video player", module=VideoPlayer, provider=VideoProvider,
-    defaults={"source": DEMO_SOURCE, "fit": "cover", "clip_seconds": 8, "fps": 10, "loop": True},
+    defaults={"source": DEMO_SOURCE, "fit": "cover", "clip_seconds": 8, "fps": 10, "loop": True,
+              "watch_seconds": 30},
     validate_settings=validate,
     choices={"fit": ("cover", "contain", "stretch")},
     help={"source": "A local file path or a direct http(s)/rtsp/rtmp/HLS (.m3u8) URL that ffmpeg can open — "
-                    "an mp4 clip, an animated GIF, or a live stream. Needs ffmpeg installed on this device. "
-                    "For an adaptive stream with several qualities (most live TV/IPTV), point this at its "
-                    "lowest-resolution rendition if it publishes one directly — the panel is 128 px wide, so "
-                    "anything above a few hundred pixels just costs decode time for nothing. Ships pointed at "
-                    "a free CC-licensed demo clip (Big Buck Bunny); swap in your own file or stream any time.",
+                    "an mp4 clip, an animated GIF, or a live stream. Add more than one, comma separated, for a "
+                    "chill channel that cycles to the next after watch_seconds. Needs ffmpeg installed on this "
+                    "device. For an adaptive stream with several qualities (most live TV/IPTV), point this at "
+                    "its lowest-resolution rendition if it publishes one directly — the panel is 128 px wide, "
+                    "so anything above a few hundred pixels just costs decode time for nothing. Ships pointed "
+                    "at a free CC-licensed demo clip (Big Buck Bunny); swap in your own file or stream any time.",
           "fit": "cover fills the panel and crops top/bottom; contain shows the whole frame with side bars; "
                  "stretch fills it exactly and distorts",
           "clip_seconds": "How much of the source to capture and loop, in seconds — kept short to save memory",
           "fps": "Playback frame rate. The panel is tiny, so 8-12 already looks smooth",
-          "loop": "Keep looping the captured clip. Off plays it once, then holds the last frame."},
-    ui={"clip_seconds": {"type": "slider", "min": 2, "max": 30, "step": 1, "unit": "s", "advanced": True},
+          "loop": "Keep looping the captured clip. Off plays it once, then holds the last frame.",
+          "watch_seconds": "How long to stay on each clip before the playlist can move on (and, with more "
+                           "than one source, before switching to the next)."},
+    ui={"source": {"type": "tags", "label": "Source(s)"},
+        "watch_seconds": {"type": "slider", "min": 5, "max": 60, "step": 5, "unit": "s"},
+        "clip_seconds": {"type": "slider", "min": 2, "max": 30, "step": 1, "unit": "s", "advanced": True},
         "fps": {"type": "slider", "min": 2, "max": 20, "step": 1, "advanced": True}},
 )

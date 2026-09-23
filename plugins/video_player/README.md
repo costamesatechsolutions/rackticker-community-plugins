@@ -10,6 +10,13 @@ plays the moment it's installed — change **source** to your own file or a
 live feed any time. Needs `ffmpeg` on the device (`sudo apt install ffmpeg`
 on a Pi).
 
+Add more than one **source** (chips in Settings, comma separated under the
+hood) and it becomes a chill channel: it plays each for **watch_seconds**,
+then decodes the next one in the background and cuts over — a rotation
+through your own clips instead of just one on loop. `watch_seconds` also
+tells the playlist how long to stay on this screen each visit, so it's a
+real watch, not a glimpse.
+
 ```sh
 python -m app.dev check path/to/this/folder     # renders preview.png and preview.gif
 python -m app.dev preview path/to/this/folder   # live in the browser, reloads on save
