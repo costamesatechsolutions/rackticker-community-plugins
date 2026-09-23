@@ -1,7 +1,11 @@
 """Video player: loops a short clip captured with ffmpeg (a local file, a direct
 video URL, or a live stream ffmpeg can open) at panel resolution. Give it more
 than one source and it becomes a chill channel, cycling to the next clip every
-watch_seconds — the display never just glimpses one and cuts away.
+watch_seconds — the display never just glimpses one and cuts away. Point
+`youtube` at a channel instead, and each turn picks a fresh random upload from
+it via yt-dlp (personal-use resolving only: nothing is downloaded or kept, and
+because no player ever loads, no ad plays — that's a real cost to whoever made
+the video, so this is meant for a device in your own home, not redistribution).
 
 ffmpeg decodes once into a raw RGB buffer that render() just slices — decoding
 never happens on the render thread. A clip is intentionally short (seconds, not
@@ -11,6 +15,7 @@ feed, say) a fresh capture each time settings ask for a re-decode.
 from __future__ import annotations
 
 import asyncio
+import random
 import shutil
 import time
 
@@ -23,11 +28,14 @@ FRAME_BYTES = WIDTH * HEIGHT * 3
 # decode) for an 8 s clip; give it real headroom rather than call that a failure.
 DECODE_TIMEOUT_MARGIN = 60  # seconds of ffmpeg startup/network slack on top of the clip itself
 INLINE_BUDGET = 4.5         # keep our own fetch() well under the 6 s the host gives providers
+YOUTUBE_LIST_TIMEOUT = 30   # listing a channel's uploads (metadata only, no formats resolved)
+YOUTUBE_RESOLVE_TIMEOUT = 20  # resolving the one chosen video to a direct stream URL
 
 
 def sources(value):
-    """One or more clips, comma separated (edited as chips in Settings): a chill
-    channel that cycles to the next after watch_seconds, instead of just one clip."""
+    """One or more clips (or, for `youtube`, channels/searches), comma separated
+    and edited as chips in Settings: a chill channel that cycles to the next
+    after watch_seconds, instead of just one clip."""
     return [part.strip() for part in str(value).split(",") if part.strip()]
 
 
@@ -40,8 +48,10 @@ def _scale_filter(fit):
     return f"scale={WIDTH}:{HEIGHT}:force_original_aspect_ratio=increase,crop={WIDTH}:{HEIGHT}"  # cover
 
 
-def _settings_key(source, settings):
-    return (source, round(float(settings["clip_seconds"]), 1),
+def _settings_key(entry, nonce, settings):
+    # `nonce` breaks the cache on purpose for a youtube pick that should be
+    # refreshed (a new random video) without the channel string itself changing.
+    return (entry, nonce, round(float(settings["clip_seconds"]), 1),
             round(float(settings["fps"]), 1), settings["fit"])
 
 
@@ -73,41 +83,105 @@ async def _capture(ffmpeg, source, clip_seconds, fps, fit):
     return stdout[:count * FRAME_BYTES], count, None
 
 
+def _channel_url(query):
+    """A channel link, an @handle, or plain text to search for and take the top hits of."""
+    text = query.strip()
+    if text.startswith(("http://", "https://")):
+        return text if text.rstrip("/").endswith(("videos", "streams", "shorts")) else text.rstrip("/") + "/videos"
+    if text.startswith("@"):
+        return f"https://www.youtube.com/{text}/videos"
+    return f"ytsearch20:{text}"
+
+
+async def _run_ytdlp(ytdlp, args, timeout):
+    try:
+        process = await asyncio.create_subprocess_exec(
+            ytdlp, *args, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+    except OSError as exc:
+        return None, str(exc)
+    try:
+        stdout, stderr = await asyncio.wait_for(process.communicate(), timeout)
+    except asyncio.TimeoutError:
+        process.kill()
+        await process.wait()
+        return None, "Timed out talking to YouTube"
+    if process.returncode != 0:
+        lines = stderr.decode("utf-8", "replace").strip().splitlines()
+        return None, (lines[-1][:200] if lines else "yt-dlp failed")
+    return stdout.decode("utf-8", "replace"), None
+
+
+async def _youtube_capture(ffmpeg, ytdlp, query, clip_seconds, fps, fit):
+    """One random recent upload from a channel or search, captured exactly like any
+    other source. Two cheap yt-dlp calls: a flat, metadata-only listing, then
+    resolving just the one chosen video to a direct playable URL — nothing is
+    downloaded or saved, and video-only (we strip audio anyway) skips muxing."""
+    out, error = await _run_ytdlp(ytdlp, ["--flat-playlist", "--print", "id", "--playlist-end", "20",
+                                          "--no-warnings", "--socket-timeout", "15", _channel_url(query)],
+                                  YOUTUBE_LIST_TIMEOUT)
+    if error:
+        return None, 0, error
+    ids = [line.strip() for line in out.splitlines() if line.strip()]
+    if not ids:
+        return None, 0, "No videos found for that channel or search"
+    out, error = await _run_ytdlp(ytdlp, ["-f", "bv*[height<=240]/bv*/best", "-g", "--no-playlist",
+                                          "--no-warnings", "--socket-timeout", "15",
+                                          f"https://www.youtube.com/watch?v={random.choice(ids)}"],
+                                  YOUTUBE_RESOLVE_TIMEOUT)
+    if error:
+        return None, 0, error
+    urls = [line.strip() for line in out.splitlines() if line.strip()]
+    if not urls:
+        return None, 0, "yt-dlp did not return a playable stream"
+    return await _capture(ffmpeg, urls[0], clip_seconds, fps, fit)
+
+
 class VideoProvider(Provider):
     def __init__(self, context):
         self.context = context
         self.frames, self.fps, self.count, self.key, self.error = None, None, None, None, None
         self.task, self.task_key = None, None
-        self.playlist, self.index, self.rotated_at = (), 0, 0.0
+        self.mode, self.playlist, self.index, self.rotated_at = "source", (), 0, 0.0
 
     async def fetch(self):
         settings = self.context.settings
-        playlist = sources(settings["source"])
+        channels = sources(settings["youtube"])
+        mode = "youtube" if channels else "source"
+        playlist = channels if channels else sources(settings["source"])
         if not playlist:
             if self.task and not self.task.done():
                 self.task.cancel()
             self.frames = self.fps = self.count = self.key = self.error = self.task = self.task_key = None
-            self.playlist, self.index = (), 0
+            self.mode, self.playlist, self.index = "source", (), 0
             return Snapshot(None, source="video_player")
 
         now = time.monotonic()
         watch = float(settings["watch_seconds"])
-        if playlist != self.playlist:
-            self.playlist, self.index, self.rotated_at = playlist, 0, now
-        elif len(playlist) > 1 and now - self.rotated_at >= watch:
+        if playlist != self.playlist or mode != self.mode:
+            self.mode, self.playlist, self.index, self.rotated_at = mode, playlist, 0, now
+        # A youtube channel always rotates to a fresh pick, even with just one channel;
+        # a fixed list of direct sources only rotates when there's more than one.
+        elif now - self.rotated_at >= watch and (mode == "youtube" or len(playlist) > 1):
             self.index = (self.index + 1) % len(playlist)
             self.rotated_at = now
 
-        key = _settings_key(playlist[self.index], settings)
+        entry = playlist[self.index]
+        nonce = self.rotated_at if mode == "youtube" else None
+        key = _settings_key(entry, nonce, settings)
         if key != self.key and key != self.task_key:
             if self.task and not self.task.done():
                 self.task.cancel()
             ffmpeg = shutil.which("ffmpeg")
+            ytdlp = shutil.which("yt-dlp") if mode == "youtube" else None
             if ffmpeg is None:
                 self.error, self.task, self.task_key = "ffmpeg is not installed on this device", None, None
+            elif mode == "youtube" and ytdlp is None:
+                self.error, self.task, self.task_key = "yt-dlp is not installed on this device", None, None
             else:
-                source_arg, clip_seconds, fps, fit = key
-                self.task = asyncio.create_task(_capture(ffmpeg, source_arg, clip_seconds, fps, fit))
+                entry_arg, _nonce, clip_seconds, fps, fit = key
+                coro = (_youtube_capture(ffmpeg, ytdlp, entry_arg, clip_seconds, fps, fit) if mode == "youtube"
+                       else _capture(ffmpeg, entry_arg, clip_seconds, fps, fit))
+                self.task = asyncio.create_task(coro)
                 self.task_key = key
 
         if self.task is not None:
@@ -117,7 +191,8 @@ class VideoProvider(Provider):
                 if error:
                     self.error = error
                 else:
-                    self.frames, self.count, self.fps, self.key, self.error = frames, count, key[2], self.task_key, None
+                    self.frames, self.count, self.fps = frames, count, self.task_key[3]
+                    self.key, self.error = self.task_key, None
                 self.task, self.task_key = None, None
 
         if self.frames is None:
@@ -134,7 +209,8 @@ class VideoPlayer(Module):
     name = "video_player"
 
     def available(self, context):
-        return bool(sources(context.config["plugins"][self.name]["source"]))
+        settings = context.config["plugins"][self.name]
+        return bool(sources(settings["source"]) or sources(settings["youtube"]))
 
     def refresh_interval(self, context):
         return 1 / context.config["display"]["fps"]
@@ -154,8 +230,11 @@ class VideoPlayer(Module):
         frame = new_frame()
         snap = context.snapshots.get(self.name)
         if not snap or not snap.data:
-            error = snap.error if snap else None
-            text = "NO FFMPEG" if error and "install" in error else "LOADING" if not error else "BAD SOURCE"
+            error = (snap.error or "") if snap else ""
+            low = error.lower()
+            text = ("NO FFMPEG" if "ffmpeg" in low and "install" in low
+                   else "NO YT-DLP" if "yt-dlp" in low and "install" in low
+                   else "LOADING" if not error else "BAD SOURCE")
             centered(frame, text, 12)
             return frame
         offset = self._index(context, snap.data) * FRAME_BYTES
@@ -171,6 +250,8 @@ def validate(settings):
         raise ValueError("watch_seconds must be 5-60")
     if len(settings["source"]) > 900:
         raise ValueError("source is too long")
+    if len(settings["youtube"]) > 900:
+        raise ValueError("youtube is too long")
 
 
 # Big Buck Bunny (CC-BY, Blender Foundation), Mux's public test stream. Pointed at the
@@ -183,8 +264,8 @@ DEMO_SOURCE = "https://test-streams.mux.dev/x36xhzz/url_2/193039199_mp4_h264_aac
 
 plugin = Plugin(
     "video_player", "Video player", module=VideoPlayer, provider=VideoProvider,
-    defaults={"source": DEMO_SOURCE, "fit": "cover", "clip_seconds": 8, "fps": 10, "loop": True,
-              "watch_seconds": 30},
+    defaults={"source": DEMO_SOURCE, "youtube": "", "fit": "cover", "clip_seconds": 8, "fps": 10,
+              "loop": True, "watch_seconds": 30},
     validate_settings=validate,
     choices={"fit": ("cover", "contain", "stretch")},
     help={"source": "A local file path or a direct http(s)/rtsp/rtmp/HLS (.m3u8) URL that ffmpeg can open — "
@@ -193,15 +274,23 @@ plugin = Plugin(
                     "device. For an adaptive stream with several qualities (most live TV/IPTV), point this at "
                     "its lowest-resolution rendition if it publishes one directly — the panel is 128 px wide, "
                     "so anything above a few hundred pixels just costs decode time for nothing. Ships pointed "
-                    "at a free CC-licensed demo clip (Big Buck Bunny); swap in your own file or stream any time.",
+                    "at a free CC-licensed demo clip (Big Buck Bunny); swap in your own file or stream any time. "
+                    "Ignored while youtube (below) has anything in it.",
+          "youtube": "One or more YouTube channels, comma separated — a link, an @handle, or just its name to "
+                    "search for. Overrides source above. Each turn picks a random recent upload and plays a "
+                    "silent clip of it via yt-dlp, which must be installed on this device separately (it needs "
+                    "its own updates as YouTube changes; see the README). Personal use on your own device: "
+                    "nothing is downloaded or kept, but since no player ever loads, no ad runs either — that's "
+                    "lost revenue for whoever made the video, so this isn't meant for redistribution.",
           "fit": "cover fills the panel and crops top/bottom; contain shows the whole frame with side bars; "
                  "stretch fills it exactly and distorts",
           "clip_seconds": "How much of the source to capture and loop, in seconds — kept short to save memory",
           "fps": "Playback frame rate. The panel is tiny, so 8-12 already looks smooth",
           "loop": "Keep looping the captured clip. Off plays it once, then holds the last frame.",
-          "watch_seconds": "How long to stay on each clip before the playlist can move on (and, with more "
-                           "than one source, before switching to the next)."},
+          "watch_seconds": "How long to stay on each clip before the playlist can move on — and, with more "
+                           "than one source or a youtube channel, before switching to the next."},
     ui={"source": {"type": "tags", "label": "Source(s)"},
+        "youtube": {"type": "tags", "label": "YouTube channel(s)"},
         "watch_seconds": {"type": "slider", "min": 5, "max": 60, "step": 5, "unit": "s"},
         "clip_seconds": {"type": "slider", "min": 2, "max": 30, "step": 1, "unit": "s", "advanced": True},
         "fps": {"type": "slider", "min": 2, "max": 20, "step": 1, "advanced": True}},
