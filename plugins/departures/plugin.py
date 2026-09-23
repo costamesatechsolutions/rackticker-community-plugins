@@ -598,6 +598,10 @@ SHORT = {
                    ("Santa", "S."), ("SANTA", "S."), ("San ", "S. "), ("SAN ", "S. ")),
     "sbb": (("Hauptbahnhof", "Hbf"), ("Flughafen", "Flugh."), ("Aéroport", "Aérop.")),
     "mav": (("pályaudvar", "pu."),),
+    # Without this, a tight column fell back to dropping "Angeles" outright — "Los"
+    # names no station. "LA" is the one American short form as recognizable as the
+    # name it stands for.
+    **{style: (("Los Angeles", "LA"),) for style in US_STYLES},
 }
 
 
