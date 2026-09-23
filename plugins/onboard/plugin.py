@@ -31,6 +31,8 @@ API = "https://api-v3.amtraker.com/v3"
 UA = {"User-Agent": "RackTicker onboard (+https://github.com/costamesatechsolutions/rackticker)"}
 TRACK = (52, 58, 64)
 BODY, LAMP = (238, 240, 238), (255, 226, 90)
+WHEEL, WINDOW = (86, 92, 100), (26, 30, 36)
+WINDOWS = {2, 5}   # dx positions in the body row that read as windows, not fuzz
 # Routes worth riding when you have no particular train in mind: (name in the feed, train numbers,
 # a station every train of the route calls at). A route with a hub asks the feed which trains
 # serve it instead of guessing numbers, because a busy corridor has dozens of them.
@@ -457,31 +459,49 @@ class Carriage(Module):
 
     @staticmethod
     def _line(frame, ride, fraction, colour, t):
-        """The line from the last stop to the next, the train on it. Drawn to a fraction of a
-        pixel: at a real train's pace it crosses a pixel every few minutes, and a bar that
-        moves in whole pixels would sit still and then lurch."""
+        """The whole route, stop by stop, not just the two ends of the leg you're on.
+        Every stop is a tick, evenly spaced (a line map, not a scale map); stops
+        already served are lit in the route's colour, the one just behind and the one
+        ahead stand taller, and the train sits between them at a fraction of a pixel
+        (a real train crosses a pixel every few minutes, and whole-pixel steps would
+        sit still and then lurch). A lone pulse rides with it, the one light on the
+        line that moves, so the eye finds it even on a busy multi-stop route."""
+        stops = ride["stops"]
         span = RIGHT - LEFT
-        edge = LEFT + fraction * span
+        legs = max(1, len(stops) - 1)
+        xs = [LEFT + round(index / legs * span) for index in range(len(stops))]
+        next_index = ride["next"]
+        behind_x, ahead_x = xs[max(0, next_index - 1)], xs[next_index]
+        edge = behind_x + fraction * (ahead_x - behind_x) if ahead_x > behind_x else float(ahead_x)
         for y in (30, 31):
             for x in range(LEFT, RIGHT + 1):
                 frame.putpixel((x, y), TRACK)
             for x in range(LEFT, int(edge)):
                 frame.putpixel((x, y), colour)
             blend(frame, int(edge), y, colour, edge - int(edge))
-        for x in (LEFT, RIGHT):                                   # the two stops
-            for y in range(28, 32):
-                frame.putpixel((x, y), WHITE if x == LEFT else MUTED if not ride["here"] else GREEN)
+        for index, x in enumerate(xs):
+            done = index < next_index or (index == next_index and ride["here"])
+            near = index in (next_index - 1, next_index)
+            top = 28 if near else 29
+            frame.putpixel((x, 31), colour if done else WHITE if near else MUTED)
+            for y in range(top, 31):
+                frame.putpixel((x, y), colour if done else MUTED if near else TRACK)
+        pulse = .35 + .35 * math.sin(t * 4)
+        blend(frame, round(edge), 29, colour, pulse)
         wide = len(TRAIN[0])
         wheels = WHEELS[int(t * 2) % 2] if ride["moving"] else WHEELS[0]
         rows = (TRAIN[0], TRAIN[1], wheels)
         # The train's nose is at the head of the bar; drawn twice, weighted by the fraction of a
         # pixel it has moved, so the total light stays the same wherever it is.
-        left = min(max(edge - wide + 1, LEFT + 1), RIGHT - wide) if not ride["here"] else RIGHT - wide - 1
+        left = min(max(edge - wide + 1, LEFT + 1), RIGHT - wide)
         whole, part = int(left), left - int(left)
         for dy, row in enumerate(rows):
             for dx, mark in enumerate(row):
                 if mark == "#":
-                    shade = LAMP if (dx == wide - 1 and dy == 1) else BODY
+                    # Dark wheels and windows on the light body are what read as a
+                    # train at this size; solid white end to end read as a blob.
+                    shade = (WHEEL if dy == 2 else LAMP if dx == wide - 1 and dy == 1
+                             else WINDOW if dy == 1 and dx in WINDOWS else BODY)
                     blend(frame, whole + dx, 27 + dy, shade, 1 - part)
                     blend(frame, whole + dx + 1, 27 + dy, shade, part)
 
