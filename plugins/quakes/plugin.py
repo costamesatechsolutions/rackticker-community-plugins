@@ -162,16 +162,20 @@ class Seismograph(Module):
     @staticmethod
     def _latest(frame, quakes, now, local):
         rows = quakes[:3]
+        rights = [f"{quake['miles']}MI {ago(now - quake['time'])}" for quake in rows]
+        name_x = text_width(f"{rows[0]['magnitude']:.1f}") + 4 if rows else 0
+        # The same room for every row, not each row's own (a nearer or older quake's
+        # shorter "MI ago" left more space) - otherwise the same place name fit on
+        # one row and had to scroll on another, which read as broken.
+        room = 128 - name_x - 4 - max((tiny_width(right) for right in rights), default=0)
         for index, quake in enumerate(rows):
             if local < index * .2:
                 continue
             y = 1 + index * 11
             size = f"{quake['magnitude']:.1f}"
             draw_text(frame, size, 0, y, magnitude_color(quake["magnitude"]))
-            right = f"{quake['miles']}MI {ago(now - quake['time'])}"
+            right = rights[index]
             draw_tiny(frame, right, 128 - tiny_width(right), y + 1, GREY)
-            name_x = text_width(size) + 4
-            room = 128 - name_x - 4 - tiny_width(right)
             name = quake["place"]
             if text_width(name, 1, True) <= room:
                 draw_text(frame, name, name_x, y, WHITE, mixed=True)
