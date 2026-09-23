@@ -156,7 +156,7 @@ def notices(rows, style_name):
     for row in rows:
         train = f"{row['kind']} {row['number']}".strip() if row["number"] != row["kind"] else row["kind"]
         values = {"train": train, "dest": row["destination"] if style_name != "trenitalia"
-                  else row["destination"].upper(), "time": row["time"].strftime("%H:%M"),
+                  else row["destination"].upper(), "time": _clock(row["time"], style_name),
                   "delay": row["delay"], "track": row["track"]}
         if row["cancelled"]:
             said.append(cancelled.format(**values))
@@ -544,6 +544,16 @@ class Boards(Provider):
 
 # --- drawing -------------------------------------------------------------------------
 
+# American boards read 12-hour; everywhere else on this board reads 24-hour.
+US_STYLES = {"amtrak", "bart", "metrolink"}
+
+
+def _clock(moment, style_name):
+    if style_name in US_STYLES:
+        return moment.strftime("%I:%M").lstrip("0")
+    return moment.strftime("%H:%M")
+
+
 def _badge(frame, kind, x, y, style, color=""):
     """A category box with white letters: dark ink on a lit box reads as noise on LEDs."""
     if not kind:
@@ -731,11 +741,12 @@ class Board(Module):
     @staticmethod
     def _title(frame, name, moment, style, style_name, live, t, yours=False):
         draw_text(frame, _fits(name, 128, True, style_name), 0, 0, style["accent"], mixed=True)
-        clock = moment.strftime("%H:%M")
+        clock = _clock(moment, style_name)
         draw_text(frame, clock, 0, 11, WHITE, 2, True)
         # The colon blinks, like the station clock it imitates.
         if math.floor(t * 2) % 2:
-            ImageDraw.Draw(frame).rectangle((text_width(clock[:2], 2) + 1, 11, text_width(clock[:2], 2) + 9, 24), fill=(0, 0, 0))
+            hour = clock.split(":")[0]
+            ImageDraw.Draw(frame).rectangle((text_width(hour, 2) + 1, 11, text_width(hour, 2) + 9, 24), fill=(0, 0, 0))
         top, bottom = style["departures"]
         x = text_width(clock, 2) + 6
         draw_text(frame, top, x, 11, GREY, mixed=True)
@@ -764,7 +775,7 @@ class Board(Module):
             layer = Image.new("RGB", (128, 9))
             late = row["delay"] >= 5
             showing_delay = late and math.floor(t / 2) % 2 == 1
-            clock = f"+{row['delay']}'" if showing_delay else row["time"].astimezone(zone).strftime("%H:%M")
+            clock = f"+{row['delay']}'" if showing_delay else _clock(row["time"].astimezone(zone), style_name)
             draw_text(layer, clock, 0, 0, RED if late else style["time"])
             x = _badge(layer, row["kind"], 31, 0, style_name, row.get("color", ""))
             track = "" if row["cancelled"] else _track_label(row["track"])
@@ -833,7 +844,7 @@ class Board(Module):
             _track_box(frame, track, text_width(track) + 2, 1, style, row.get("moved"), t)
         x = _badge(frame, row["kind"], text_width(track) + 6 if track else 0, 1, style_name, row.get("color", ""))
         destination = row["destination"] if mixed else row["destination"].upper()
-        clock = row["time"].strftime("%H:%M")
+        clock = _clock(row["time"], style_name)
         draw_text(frame, _fits(destination, 128 - x - text_width(clock) - 3, mixed, style_name), x, 1, style["dest"],
                  mixed=mixed)
         draw_text(frame, clock, 128 - text_width(clock), 1, WHITE)
