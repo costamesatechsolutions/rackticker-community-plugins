@@ -176,8 +176,10 @@ class Seismograph(Module):
             if text_width(name, 1, True) <= room:
                 draw_text(frame, name, name_x, y, WHITE, mixed=True)
             else:
+                # One shared clock (not staggered by row) so two rows naming the
+                # same place scroll in lockstep instead of drifting apart.
                 strip = _name_strip(name)
-                loop_strip(frame, strip, (name_x, y, room, strip.height), max(0.0, local - index * .2), NAME_SPEED)
+                loop_strip(frame, strip, (name_x, y, room, strip.height), local, NAME_SPEED)
 
 
 plugin = Plugin(
