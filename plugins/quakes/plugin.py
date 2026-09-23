@@ -8,18 +8,31 @@ over the display once.
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+from functools import lru_cache
 import math
 import random
 
 import aiohttp
-from PIL import ImageDraw
+from PIL import Image, ImageDraw
 
-from rackticker import Module, Plugin, Provider, Snapshot, draw_text, draw_tiny, new_frame, text_width, tiny_width
+from rackticker import (Module, Plugin, Provider, Snapshot, draw_text, draw_tiny, loop_strip, new_frame,
+                         text_width, tiny_width)
 
 USGS = "https://earthquake.usgs.gov/fdsnws/event/1/query"
 WHITE, GREY, DIM = (236, 238, 236), (140, 146, 150), (40, 44, 48)
 TRACE = (90, 230, 120)
 DRUM_SECONDS, ROW_SECONDS = 7.0, 7.0
+NAME_GAP, NAME_SPEED = 14, 18  # blank run between laps of a name too long to sit still
+
+
+@lru_cache(maxsize=32)
+def _name_strip(name):
+    """A place name too long for its row, built once and looped rather than cut
+    mid-word."""
+    height = 9  # 7 rows plus the 2-row descenders mixed case needs
+    strip = Image.new("RGB", (text_width(name, 1, True) + NAME_GAP, height))
+    draw_text(strip, name, 0, 0, WHITE, mixed=True)
+    return strip
 
 
 def magnitude_color(value):
@@ -157,15 +170,14 @@ class Seismograph(Module):
             draw_text(frame, size, 0, y, magnitude_color(quake["magnitude"]))
             right = f"{quake['miles']}MI {ago(now - quake['time'])}"
             draw_tiny(frame, right, 128 - tiny_width(right), y + 1, GREY)
-            room = 128 - text_width(size) - 4 - tiny_width(right) - 4
-            # Whole words only; a name cut mid-word reads as broken.
-            words = quake["place"].split()
-            while len(words) > 1 and text_width(" ".join(words), 1, True) > room:
-                words.pop()
-            name = " ".join(words)
-            while name and text_width(name, 1, True) > room:
-                name = name[:-1]
-            draw_text(frame, name, text_width(size) + 4, y, WHITE, mixed=True)
+            name_x = text_width(size) + 4
+            room = 128 - name_x - 4 - tiny_width(right)
+            name = quake["place"]
+            if text_width(name, 1, True) <= room:
+                draw_text(frame, name, name_x, y, WHITE, mixed=True)
+            else:
+                strip = _name_strip(name)
+                loop_strip(frame, strip, (name_x, y, room, strip.height), max(0.0, local - index * .2), NAME_SPEED)
 
 
 plugin = Plugin(
