@@ -16,7 +16,9 @@ from PIL import Image
 from rackticker import HEIGHT, WIDTH, Module, Plugin, Provider, Snapshot, centered, new_frame
 
 FRAME_BYTES = WIDTH * HEIGHT * 3
-DECODE_TIMEOUT_MARGIN = 20  # seconds of ffmpeg startup/network slack on top of the clip itself
+# A Pi 3A+ over Wi-Fi took 29 s just opening a remote HLS URL (mostly network, not
+# decode) for an 8 s clip; give it real headroom rather than call that a failure.
+DECODE_TIMEOUT_MARGIN = 60  # seconds of ffmpeg startup/network slack on top of the clip itself
 INLINE_BUDGET = 4.5         # keep our own fetch() well under the 6 s the host gives providers
 
 
@@ -151,7 +153,12 @@ def validate(settings):
         raise ValueError("source is too long")
 
 
-DEMO_SOURCE = "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8"  # Big Buck Bunny (CC-BY, Blender Foundation)
+# Big Buck Bunny (CC-BY, Blender Foundation), Mux's public test stream. Pointed at the
+# 320x184 rendition directly, not the adaptive master: given a master playlist, ffmpeg
+# picks its first-listed variant regardless of bitrate, which here was 720p — a Pi 3A+
+# needed 53 s of CPU to decode 8 s of that for a panel 128 px wide. Nothing above a few
+# hundred pixels wide ever helps here, whichever source it comes from.
+DEMO_SOURCE = "https://test-streams.mux.dev/x36xhzz/url_2/193039199_mp4_h264_aac_ld_7.m3u8"
 
 
 plugin = Plugin(
@@ -161,8 +168,10 @@ plugin = Plugin(
     choices={"fit": ("cover", "contain", "stretch")},
     help={"source": "A local file path or a direct http(s)/rtsp/rtmp/HLS (.m3u8) URL that ffmpeg can open — "
                     "an mp4 clip, an animated GIF, or a live stream. Needs ffmpeg installed on this device. "
-                    "Ships pointed at a free CC-licensed demo clip (Big Buck Bunny); swap in your own file or "
-                    "stream any time.",
+                    "For an adaptive stream with several qualities (most live TV/IPTV), point this at its "
+                    "lowest-resolution rendition if it publishes one directly — the panel is 128 px wide, so "
+                    "anything above a few hundred pixels just costs decode time for nothing. Ships pointed at "
+                    "a free CC-licensed demo clip (Big Buck Bunny); swap in your own file or stream any time.",
           "fit": "cover fills the panel and crops top/bottom; contain shows the whole frame with side bars; "
                  "stretch fills it exactly and distorts",
           "clip_seconds": "How much of the source to capture and loop, in seconds — kept short to save memory",
