@@ -174,13 +174,18 @@ class Aquarium(Module):
                     draw.ellipse((round(x), round(y), round(x) + 2, round(y) + 2), outline=lit((0, 160, 220)))
                 else:
                     draw.point((round(x), round(y)), fill=lit((0, 190, 235)))
-        motion = t * settings["speed"] * (.55 if night else 1)
+        # Each visit picks the fish up somewhere else along their paths: starting from the
+        # same moment every time, the tank played the same few seconds on every visit.
+        drift = (getattr(context, "scene", 0) or 0) * 37.7 % 600
+        motion = (t + drift) * settings["speed"] * (.55 if night else 1)
         for i in range(int(settings["fish_count"])):
             # Smooth turns at the glass: no sudden wrapping across the tank.
             phase = motion * (.13 + (i % 3) * .025) + i * 2.399
             x = 64 + 51 * math.sin(phase)
             direction = 1 if math.cos(phase) >= 0 else -1
-            y = 8 + (i * 7 % 14) + math.sin(motion * .8 + i) * 1.5
+            # Spread through the water: "8 + i * 7 % 14" put every fish on one of two
+            # rows, so they kept swimming through one another.
+            y = 6 + (i * 11 % 17) + math.sin(motion * .8 + i) * 1.5
             species = i % 3 if settings["habitat"] == "reef" else (1 if i == 0 else 2)
             color = ((255, 100, 0), (255, 210, 0), (0, 95, 240))[species]
             fish(draw, x, y, direction, lit(color), species, motion * 7 + i)

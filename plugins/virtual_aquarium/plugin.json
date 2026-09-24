@@ -4,5 +4,5 @@
   "entry": "rackticker_aquarium.py",
   "description": "A living pixel aquarium: clownfish, angelfish, neon tetras, swaying plants and a wandering snail. Optionally mirrors real tank readings and lighting.",
   "author": "Costa Mesa Tech Solutions",
-  "version": "1.0.0"
+  "version": "1.0.1"
 }
