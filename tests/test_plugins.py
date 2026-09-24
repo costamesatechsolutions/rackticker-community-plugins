@@ -61,6 +61,28 @@ def community(name):
 
 
 @needs_rackticker
+class NameFittingTests(unittest.TestCase):
+    def test_tank_names_keep_every_word_and_stay_on_the_panel(self):
+        tanks = community("tanks")
+        from rackticker import tiny_width
+        self.assertEqual(tanks.name_lines("Shasta"), (["Shasta"], False))
+        for name in ("Oroville", "New Melones", "Don Pedro", "Waste water"):
+            lines, small = tanks.name_lines(name)
+            with self.subTest(name=name, lines=lines):
+                self.assertTrue(small)
+                self.assertEqual(" ".join(lines), name.upper())       # "New Melones" was just "New"
+                self.assertTrue(all(tiny_width(line) <= tanks.NAME_ROOM for line in lines))
+
+    def test_a_long_place_name_rests_then_glides_to_its_end_instead_of_looping(self):
+        quakes = community("quakes")
+        from rackticker import text_width
+        resting, distance = quakes._name_stops("Johannesburg", 60)
+        self.assertTrue("Johannesburg".startswith(resting))
+        self.assertLessEqual(text_width(resting, 1, True), 60)
+        self.assertLessEqual(text_width("Johannesburg", 1, True) - distance, 60)
+
+
+@needs_rackticker
 class DeparturesTests(unittest.TestCase):
     def test_long_names_shorten_the_way_boards_do(self):
         departures = community("departures")
@@ -71,10 +93,13 @@ class DeparturesTests(unittest.TestCase):
     def test_american_names_are_not_run_through_italian_abbreviations(self):
         # "Santa"/"San " -> "S." is how a Trenitalia sign shortens Santa Lucia; on an
         # Amtrak or Metrolink board it turned San Diego and Santa Ana into just "S.",
-        # which is not a real station and not what any American sign does.
+        # which is not a real station and not what any American sign does. Cut back to
+        # whole words it came out as a bare "San", which is not one either.
         departures = community("departures")
-        self.assertEqual(departures._fits("San Diego", 35, True, "amtrak"), "San")
-        self.assertEqual(departures._fits("Santa Ana", 35, True, "metrolink"), "Santa")
+        self.assertEqual(departures._fits("San Diego", 35, True, "amtrak"), "San Di.")
+        self.assertEqual(departures._fits("Santa Ana", 45, True, "metrolink"), "Santa A.")
+        self.assertEqual(departures._fits("San Bernardino", 57, True, "metrolink"), "San Berna.")
+        self.assertEqual(departures._fits("New York", 30, True, "amtrak"), "NY")
 
     def test_paired_platforms_fit_the_column(self):
         departures = community("departures")

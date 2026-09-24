@@ -15,7 +15,7 @@ import random
 import aiohttp
 from PIL import ImageDraw
 
-from rackticker import Module, Plugin, Provider, Snapshot, draw_text, draw_tiny, new_frame, text_width
+from rackticker import Module, Plugin, Provider, Snapshot, draw_text, draw_tiny, new_frame, text_width, tiny_width
 
 CDEC = "https://cdec.water.ca.gov/dynamicapp/req/JSONDataServlet"
 # Station: (name on the panel, capacity in acre-feet)
@@ -28,6 +28,29 @@ WATER = ((20, 70, 190), (60, 150, 255))
 URINE = ((150, 120, 10), (255, 214, 40))
 GLASS, WHITE, GREY, UP, DOWN = (90, 100, 110), (236, 238, 236), (140, 146, 150), (90, 230, 120), (255, 90, 60)
 PAGE_SECONDS = 6.0
+NAME_ROOM = 38      # beside a tank, up to the next one (or the panel's edge)
+
+
+def name_lines(name, room=NAME_ROOM):
+    """How a tank's name is lettered: one line of 5x7 when it fits, else its words
+    stacked in the small capitals, so "New Melones" never shows as just "New" and
+    "Oroville" never loses its last letter off the edge of the panel."""
+    if text_width(name, 1, True) <= room:
+        return [name], False
+    lines = []
+    for word in name.upper().split():
+        if lines and tiny_width(f"{lines[-1]} {word}") <= room:
+            lines[-1] = f"{lines[-1]} {word}"
+        else:
+            lines.append(word)
+    if len(lines) > 2:
+        lines = [lines[0], " ".join(lines[1:])]
+    trimmed = []
+    for line in lines:
+        while tiny_width(line) > room:
+            line = line[:-1]
+        trimmed.append(line)
+    return trimmed, True
 
 
 async def reservoirs(session, stations):
@@ -218,10 +241,14 @@ class TankScreen(Module):
             surface.step(dt)
             draw_tank(frame, surface, x0 + 1, 1, 20, 30, tank["level"], URINE if tank["kind"] == "urine" else WATER)
             text_x = x0 + 25
-            label = tank["name"] if text_width(tank["name"], 1, True) <= 38 else tank["name"].split()[0]
-            draw_text(frame, label, text_x, 0, WHITE, mixed=True)
+            lines, small = name_lines(tank["name"])
+            if small:
+                for row, line in enumerate(lines):
+                    draw_tiny(frame, line, text_x, row * 6 + (0 if len(lines) > 1 else 2), WHITE)
+            else:
+                draw_text(frame, lines[0], text_x, 0, WHITE, mixed=True)
             percent = f"{round(tank['level'] * 100)}%"
-            draw_text(frame, percent, text_x, 11, WHITE, 2 if text_width(percent, 2) <= 38 else 1, True)
+            draw_text(frame, percent, text_x, 12, WHITE, 2 if text_width(percent, 2) <= NAME_ROOM else 1, True)
             if tank.get("iss"):
                 draw_tiny(frame, "ISS", text_x, 27, GREY)
             elif tank.get("change") is not None:

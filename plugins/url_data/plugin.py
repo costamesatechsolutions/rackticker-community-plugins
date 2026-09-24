@@ -13,6 +13,7 @@ from __future__ import annotations
 import asyncio
 import math
 import re
+import time
 
 import aiohttp
 
@@ -98,25 +99,59 @@ def detail_line(template, payload):
     return TOKEN.sub(fill, template).strip()
 
 
+def retry_after(error, failures, refresh):
+    """Seconds to leave a link alone after it failed.
+
+    RackTicker asks every provider for news every few seconds; a link is only asked
+    again when its refresh time is up, and a server that says it has had too many
+    requests (429) is left alone for as long as it asks, or longer each time it has
+    to say it again. Asked every five seconds, CoinGecko's free API refused all day."""
+    if isinstance(error, aiohttp.ClientResponseError) and error.status == 429:
+        wait = None
+        try:
+            wait = float((error.headers or {}).get("Retry-After"))
+        except (TypeError, ValueError):
+            pass
+        return min(3600.0, max(wait or 0.0, refresh * 2 ** min(failures, 6)))
+    return min(float(refresh), 15.0 * 2 ** min(failures - 1, 4))
+
+
 class Links(Provider):
     def __init__(self, context):
         self.context = context
         self.session = None
         self.values = {}
+        self.due = {}          # slot -> (url, monotonic time it may be asked again)
+        self.failures = {}     # slot -> failures in a row
+        self.said = {}         # slot -> the last error logged, so a stuck link is said once
 
     async def fetch(self):
         settings = self.context.settings
         if self.session is None or self.session.closed:
             self.session = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=5),
                                                  headers={"User-Agent": "RackTicker url_data"})
+        now = time.monotonic()
 
         async def one(slot):
             url = settings[f"url_{slot}"].strip()
             if not url:
                 return None
-            async with self.session.get(url) as response:
-                response.raise_for_status()
-                payload = await response.json(content_type=None)
+            asked, due = self.due.get(slot, (None, 0.0))
+            if asked == url and now < due:
+                return self.values.get(slot)      # not time yet: the last reply stands
+            try:
+                async with self.session.get(url) as response:
+                    response.raise_for_status()
+                    payload = await response.json(content_type=None)
+            except Exception as exc:
+                self.failures[slot] = self.failures.get(slot, 0) + 1
+                self.due[slot] = (url, now + retry_after(exc, self.failures[slot], settings["refresh_seconds"]))
+                if asked != url:
+                    self.values.pop(slot, None)   # a new link: the old one's reply is not its answer
+                raise
+            self.failures[slot] = 0
+            self.due[slot] = (url, now + settings["refresh_seconds"])
+            self.said.pop(slot, None)
             return payload
 
         results = await asyncio.gather(*(one(slot) for slot in range(1, SLOTS + 1)), return_exceptions=True)
@@ -125,9 +160,12 @@ class Links(Provider):
             if not settings[f"url_{slot}"].strip():
                 continue
             if isinstance(result, Exception):
-                print(f"link {slot}: {type(result).__name__}: {result}")
+                message = f"link {slot}: {type(result).__name__}: {result}"
+                if self.said.get(slot) != message:
+                    self.said[slot] = message
+                    print(message)
                 result = self.values.get(slot)  # keep the last good reply through a hiccup
-            else:
+            elif result is not None:
                 self.values[slot] = result
             value = pick(result, settings[f"path_{slot}"].strip()) if result is not None else None
             if value is None:

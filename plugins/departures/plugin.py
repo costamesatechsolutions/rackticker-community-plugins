@@ -120,7 +120,10 @@ BADGES = {
 }
 ROWS, ROW_Y = 3, (1, 11, 21)
 TITLE_SECONDS, PAGE_SECONDS, SCENE_SECONDS = 3.5, 7.0, 6.5
-NOTICE_SPEED, NOTICES = 30, 3   # 30 px/s is one LED a frame: a smooth crawl; at most three per visit
+NOTICES = 3                     # at most three announcements per visit
+# Announcements show two lines at a time and roll up a line once it has been read:
+# crawling past one line at a time, a sentence took twenty seconds to get through.
+NOTICE_TOP, NOTICE_PITCH, NOTICE_CPS, NOTICE_ROLL = 12, 10, 12, .3
 # The station's own announcement, per board style: (heading, late, platform, cancelled).
 # {train} is "FR 9612", {dest} the destination, {time} the planned departure.
 ANNOUNCE = {
@@ -146,6 +149,47 @@ ANNOUNCE = {
             "{train} nach {dest}, Abfahrt {time}: heute ab Gleis {track}",
             "{train} nach {dest}, Abfahrt {time}: fällt aus"),
 }
+
+
+def _wrap(text, width=126):
+    """Whole words on lines no wider than `width`."""
+    lines, line = [], ""
+    for word in str(text).split():
+        joined = f"{line} {word}" if line else word
+        if line and text_width(joined, 1, True) > width:
+            lines.append(line)
+            joined = word
+        line = joined
+    return lines + [line] if line else lines
+
+
+def _notice_plan(text):
+    """[(start, dwell)] per view: view v shows lines v and v+1, long enough to read what it adds."""
+    lines = _wrap(text)
+    views, at = [], .3
+    for view in range(max(1, len(lines) - 1)):
+        letters = sum(len(line) for line in (lines[:2] if view == 0 else lines[view + 1:view + 2]))
+        dwell = max(2.0, .8 + letters / NOTICE_CPS) if view == 0 else max(1.5, .4 + letters / NOTICE_CPS)
+        views.append((at, dwell))
+        at += dwell + NOTICE_ROLL
+    return views
+
+
+def notice_seconds(text):
+    start, dwell = _notice_plan(text)[-1]
+    return start + dwell + .3
+
+
+def _notice_scroll(text, local):
+    plan = _notice_plan(text)
+    for view, (start, dwell) in enumerate(plan[:-1]):
+        roll = start + dwell
+        if local < roll:
+            return view * NOTICE_PITCH
+        if local < roll + NOTICE_ROLL:
+            eased = (1 - math.cos(math.pi * (local - roll) / NOTICE_ROLL)) / 2
+            return round((view + eased) * NOTICE_PITCH)
+    return (len(plan) - 1) * NOTICE_PITCH
 
 
 def notices(rows, style_name):
@@ -436,7 +480,7 @@ METROLINK_URL = "https://rtt.metrolinktrains.com/StationScheduleList.json"
 # the Amtrak trains calling at the same platforms.
 METRO_LINES = {"IEOC LINE": "IEOC", "SB LINE": "SB", "91/PV Line": "91/PV", "ARROW": "ARROW",
                "AV LINE": "AV", "VC LINE": "VC", "OC LINE": "OC", "RIVERSIDE LINE": "RIV",
-               "PAC SURF": "SURF", "CST STRLT": "STAR"}
+               "PAC SURF": "SURF", "CST STRLT": "STAR", "SUN LTD": "SUNS"}
 _metrolink_cache = {"at": 0.0, "rows": None}
 
 
@@ -601,12 +645,67 @@ SHORT = {
     # Without this, a tight column fell back to dropping "Angeles" outright — "Los"
     # names no station. "LA" is the one American short form as recognizable as the
     # name it stands for.
-    **{style: (("Los Angeles", "LA"),) for style in US_STYLES},
+    **{style: (("Los Angeles", "LA"), ("New York", "NY"), ("San Francisco", "SF")) for style in US_STYLES},
 }
 
 
+# The first word of a place name that names nothing on its own: a board that cut
+# "San Bernardino" back to its whole words left just "San".
+PREFIXES = {"san", "santa", "santo", "st", "st.", "saint", "los", "las", "la", "le", "el", "new", "fort", "ft",
+            "port", "north", "south", "east", "west", "n", "s", "e", "w", "mount", "mt", "del", "de", "des",
+            "di", "the", "upper", "lower", "old", "big", "little", "grand", "salt", "palm", "long", "king's",
+            "s.", "c.le"}
+
+
+def _abbreviated(text, width, mixed, style_name=None):
+    """The board's own abbreviations, one at a time until the name fits (or none are left)."""
+    for long, short in SHORT.get(style_name, ()):
+        if text_width(text, 1, mixed) <= width:
+            break
+        text = text.replace(long, short)
+    return text
+
+
+PAN_REST, PAN_SPEED = 1.8, 20   # a long name sits still to be read, then glides once to its end
+
+
+def _pan_stops(text, room, mixed):
+    """(what shows at rest, how far it glides) for a name wider than its column.
+
+    At rest it shows only whole letters; it glides until its last word starts at the
+    column's left edge (or, for one long word, a letter does), so it stops on clean
+    lettering, never on a sliver of one."""
+    whole = text
+    while whole and text_width(whole, 1, mixed) > room:
+        whole = whole[:-1]
+    full = text_width(text, 1, mixed)
+    starts = [text_width(text[:i], 1, mixed) + 1 for i in range(1, len(text))]
+    fitting = [x for x in starts if full - x <= room]
+    words = [x for i, x in zip(range(1, len(text)), starts) if text[i - 1] in " -" and full - x <= room]
+    return whole.rstrip(), min(words or fitting or [max(0, full - room)])
+
+
+def _pan(local, distance):
+    """How far a name wider than its column has slid left at page time `local`."""
+    return min(distance, max(0, round((local - PAN_REST) * PAN_SPEED)))
+
+
+def _whole_words(text, width, mixed):
+    """The leading whole words that fit, as long as they name something:
+    "Redlands" from "Redlands - University", "FIUMICINO" from "FIUMICINO AEROP.",
+    never "San" from "San Bernardino". None when there are none."""
+    words = re.split(r"(?<=[ -])", text)
+    for keep in range(len(words) - 1, 0, -1):
+        head = "".join(words[:keep]).rstrip(" -")
+        if (text_width(head, 1, mixed) <= width and head.split()[-1].lower() not in PREFIXES
+                and len(head) >= 4):
+            return head
+    return None
+
+
 def _fits(text, width, mixed, style_name=None):
-    """The name as the board would fit it: its usual abbreviations, then whole words."""
+    """The name as the board would fit it: its usual abbreviations, then whole words,
+    then the last word shortened with a stop ("San Bern.") rather than a bare "San"."""
     if text_width(text, 1, mixed) <= width:
         return text
     for long, short in SHORT.get(style_name, ()):
@@ -614,12 +713,35 @@ def _fits(text, width, mixed, style_name=None):
         if text_width(text, 1, mixed) <= width:
             return text
     words = re.split(r"(?<=[ -])", text)
-    while len(words) > 1 and text_width("".join(words), 1, mixed) > width:
-        words.pop()
-    text = "".join(words).rstrip(" -")
+    heads = ["".join(words[:keep]).rstrip(" -") for keep in range(len(words) - 1, 0, -1)]
+    head = _whole_words(text, width, mixed)
+    if head:
+        return head
+
+    def shortened(keep, shortest):
+        before, word = "".join(words[:keep - 1]), words[keep - 1].rstrip(" -")
+        for cut in range(len(word) - 1, shortest - 1, -1):
+            if word[cut - 1].isalpha() and text_width(f"{before}{word[:cut]}.", 1, mixed) <= width:
+                return f"{before}{word[:cut]}."
+        return None
+
+    # Failing whole words that name something, the word after the prefix cut short
+    # ("San Bern.", "Santa A.")...
+    for keep in range(len(words), 1, -1):
+        found = shortened(keep, 1)
+        if found:
+            return found
+    # ...then the first word whole, even a bare "New", before a stump like "Ne."...
+    for head in heads:
+        if text_width(head, 1, mixed) <= width:
+            return head
+    # ...and a single long word cut short ("Oceans.").
+    found = shortened(1, 3)
+    if found:
+        return found
     while text and text_width(text, 1, mixed) > width:
         text = text[:-1]
-    return text
+    return text.rstrip(" -")
 
 
 class Board(Module):
@@ -669,8 +791,7 @@ class Board(Module):
         pages = max(1, math.ceil(len(rows) / ROWS))
         scene = SCENE_SECONDS if rows and self.visits % 2 == 0 else 0
         heading, said = notices(rows, style_name)
-        # Each announcement crawls fully across once.
-        spoken = [(text, (128 + text_width(text, 1, True)) / NOTICE_SPEED + .6) for text in said]
+        spoken = [(text, notice_seconds(text)) for text in said]
         return scene, TITLE_SECONDS, pages, heading, spoken
 
     def hold(self, context):
@@ -727,20 +848,32 @@ class Board(Module):
             # Departures in your own time, unless you asked for the station's.
             shown = None if settings["times"] == "station" or not live else datetime.now().astimezone().tzinfo
             self._rows(frame, rows[page * ROWS:(page + 1) * ROWS], style, style_name, local - page * PAGE_SECONDS, t,
-                       shown)
+                       shown, self._time_column(rows, style_name, shown or rows[0]["time"].tzinfo))
         return frame
 
     @staticmethod
     def _notice(frame, heading, text, style, local, t):
         """An announcement, the way the board runs one: a lit heading, then the
-        message crawling through in the station's language."""
+        message two lines at a time, in the station's language."""
         draw = ImageDraw.Draw(frame)
         width = text_width(heading, 1, True) + 6
         draw.rectangle((0, 0, width, 9), fill=style["accent"])   # steady: a blink read as a jump
         draw_text(frame, heading, 3, 1, WHITE, mixed=True)
-        draw.line((0, 30, 127, 30), fill=DIM)
-        x = 128 - math.floor(max(0.0, local - .3) * NOTICE_SPEED)
-        draw_text(frame, text, x, 16, style["dest"], mixed=True)
+        lines = _wrap(text)
+        top = NOTICE_TOP if len(lines) > 1 else NOTICE_TOP + NOTICE_PITCH // 2
+        # Lines rolling away leave under the heading, not over it; the window starts a
+        # row above the capitals so a descender that has rolled off never lingers.
+        window_top = NOTICE_TOP - 1
+        layer = Image.new("RGB", (128, 32 - window_top))
+        y = top - window_top - _notice_scroll(text, local)
+        for line in lines:
+            if -9 < y < layer.height:
+                draw_text(layer, line, 1, y, style["dest"], mixed=True)
+            y += NOTICE_PITCH
+        if local < .3:   # typed on from the left as it starts
+            edge = round(128 * local / .3)
+            layer.paste((0, 0, 0), (edge, 0, 128, layer.height))
+        frame.paste(layer, (0, window_top))
 
     @staticmethod
     def _title(frame, name, moment, style, style_name, live, t, yours=False):
@@ -764,7 +897,17 @@ class Board(Module):
             draw_tiny(frame, "TIMETABLE", 128 - tiny_width("TIMETABLE"), 1, DIM)
 
     @staticmethod
-    def _rows(frame, rows, style, style_name, local, t, zone=None):
+    def _time_column(rows, style_name, zone=None):
+        """Where the badges start: just clear of the widest time on the whole board
+        (or its delay, which takes the time's place), so every page lines up the same
+        and a 12-hour board gives the destinations the room it does not need."""
+        widths = [text_width(_clock(row["time"].astimezone(zone) if zone else row["time"], style_name))
+                  for row in rows]
+        widths += [text_width(f"+{row['delay']}'") for row in rows if row["delay"] >= 5]
+        return max(widths, default=27) + 4
+
+    @staticmethod
+    def _rows(frame, rows, style, style_name, local, t, zone=None, badge_x=31):
         mixed = style["mixed"]
         zone = zone or rows[0]["time"].tzinfo if rows else zone
         # One track column for the page, as wide as its widest number.
@@ -781,15 +924,29 @@ class Board(Module):
             showing_delay = late and math.floor(t / 2) % 2 == 1
             clock = f"+{row['delay']}'" if showing_delay else _clock(row["time"].astimezone(zone), style_name)
             draw_text(layer, clock, 0, 0, RED if late else style["time"])
-            x = _badge(layer, row["kind"], 31, 0, style_name, row.get("color", ""))
+            x = _badge(layer, row["kind"], badge_x, 0, style_name, row.get("color", ""))
             track = "" if row["cancelled"] else _track_label(row["track"])
             room = 128 - x - (column + 3 if column else 0)
             destination = style["cancelled"] if row["cancelled"] else row["destination"]
             text = destination if mixed else destination.upper()
-            # A name too long for its column is shortened the way the boards do it ("S. Bernardino"),
-            # not scrolled: a row that moves cannot be read while you are looking for your train.
-            draw_text(layer, _fits(text, room, mixed, style_name), x, 0,
-                     RED if row["cancelled"] else style["dest"], mixed=mixed)
+            # A name too long for its column is shortened the way the boards do it
+            # ("S. Lucia", "FIUMICINO" for Fiumicino Aeroporto). When whole words would
+            # leave nothing that names a place (cut back to whole words, "San Bernardino"
+            # came out as a bare "San") it rests, then glides once to its last word, the
+            # way a dot-matrix board shows a name too long for it.
+            text = _abbreviated(text, room, mixed, style_name)
+            if text_width(text, 1, mixed) > room:
+                text = _whole_words(text, room, mixed) or text
+            colour = RED if row["cancelled"] else style["dest"]
+            overflow = text_width(text, 1, mixed) - room
+            if overflow <= 0:
+                draw_text(layer, text, x, 0, colour, mixed=mixed)
+            elif room > 0:
+                cell = Image.new("RGB", (room, 9))
+                resting, distance = _pan_stops(text, room, mixed)
+                shift = _pan(local - delay, distance)
+                draw_text(cell, resting if shift == 0 else text, -shift, 0, colour, mixed=mixed)
+                layer.paste(cell, (x, 0))
             if track:
                 _track_box(layer, track, 127, 0, style, row.get("moved"), t, column)
             frame.paste(layer.crop((0, 0, 128, 9 - rise)), (0, ROW_Y[index] + rise))

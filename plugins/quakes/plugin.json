@@ -4,6 +4,6 @@
   "entry": "plugin.py",
   "description": "Earthquakes around you from the USGS: a 24-hour seismograph drum, the latest shakes by size and distance, and a take-over when a strong one hits nearby.",
   "author": "Costa Mesa Tech Solutions",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "homepage": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/quakes"
 }

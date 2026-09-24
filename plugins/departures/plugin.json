@@ -4,6 +4,6 @@
   "entry": "plugin.py",
   "description": "Live station boards: the London Underground in its own line colours, Metrolink and Amtrak across the United States, BART, and seven European stations, each drawn the way that country's boards look, with trains pulling into the platform.",
   "author": "Costa Mesa Tech Solutions",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "homepage": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/departures"
 }

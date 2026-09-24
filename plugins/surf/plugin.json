@@ -4,6 +4,6 @@
   "entry": "plugin.py",
   "description": "The surf at your break: wave height, swell period and direction, water temperature, and real water — a simulated sea driven by the actual swell, sitting high or low with the actual tide.",
   "author": "Costa Mesa Tech Solutions",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "homepage": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/surf"
 }

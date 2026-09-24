@@ -6,8 +6,10 @@ rolling along the bottom is sized and paced by the real swell.
 """
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime
 import math
+import time
 
 import aiohttp
 from PIL import ImageDraw
@@ -17,6 +19,10 @@ from rackticker import (Module, Plugin, Provider, Snapshot, draw_text, draw_tiny
 
 MARINE = "https://marine-api.open-meteo.com/v1/marine"
 TIDES = "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter"
+# RackTicker asks for news every five seconds. The sea model updates hourly and tide
+# predictions are known days ahead, so asking every five seconds only spent Open-Meteo's
+# daily allowance: these are how often each is really worth asking.
+SEA_EVERY, TIDE_EVERY = 900, 3 * 3600
 # Break: (name, latitude, longitude just offshore, NOAA tide station)
 SPOTS = {
     "huntington": ("Huntington Pier", 33.650, -118.010, "9410580"),
@@ -49,6 +55,8 @@ class Conditions(Provider):
     def __init__(self, context):
         self.context = context
         self.session = None
+        self.sea = (None, -1e9, None)       # (spot, when asked, current conditions)
+        self.tides = (None, -1e9, [])       # (station and day, when asked, predictions)
 
     async def fetch(self):
         settings = self.context.settings
@@ -64,17 +72,24 @@ class Conditions(Provider):
                   "temperature_unit": "fahrenheit", "timezone": "auto",
                   "current": "wave_height,wave_period,wave_direction,swell_wave_height,swell_wave_period,"
                              "swell_wave_direction,sea_surface_temperature"}
-        async with self.session.get(MARINE, params=params) as response:
-            response.raise_for_status()
-            current = (await response.json(content_type=None))["current"]
+        asked, at, current = self.sea
+        if asked != spot or time.monotonic() - at >= SEA_EVERY:
+            async with self.session.get(MARINE, params=params) as response:
+                response.raise_for_status()
+                current = (await response.json(content_type=None))["current"]
+            self.sea = (spot, time.monotonic(), current)
         tide = None
         today = datetime.now()
         tide_params = {"product": "predictions", "application": "rackticker", "datum": "MLLW", "station": station,
                        "begin_date": today.strftime("%Y%m%d"), "range": "48", "time_zone": "lst_ldt",
                        "units": "english", "interval": "hilo", "format": "json"}
         try:
-            async with self.session.get(TIDES, params=tide_params) as response:
-                predictions = (await response.json(content_type=None)).get("predictions") or []
+            key = (station, tide_params["begin_date"])
+            asked, at, predictions = self.tides
+            if asked != key or time.monotonic() - at >= TIDE_EVERY:
+                async with self.session.get(TIDES, params=tide_params) as response:
+                    predictions = (await response.json(content_type=None)).get("predictions") or []
+                self.tides = (key, time.monotonic(), predictions)
             upcoming = [row for row in predictions if datetime.strptime(row["t"], "%Y-%m-%d %H:%M") > today]
             if upcoming:
                 # The one after it too: two turns of the tide say which way the water
@@ -82,8 +97,11 @@ class Conditions(Provider):
                 tide = {"high": upcoming[0]["type"] == "H", "time": upcoming[0]["t"],
                         "feet": float(upcoming[0]["v"]),
                         "then": upcoming[1]["t"] if len(upcoming) > 1 else None}
-        except (aiohttp.ClientError, ValueError, KeyError):
+        except (aiohttp.ClientError, asyncio.TimeoutError, ValueError, KeyError):
+            # A slow tide server leaves the sea without its tide for now, not the whole
+            # screen without a sea; it is asked again in ten minutes, not five seconds.
             tide = None
+            self.tides = (self.tides[0], time.monotonic() - TIDE_EVERY + 600, self.tides[2])
         return Snapshot({"spot": name, "height": current.get("wave_height"), "period": current.get("swell_wave_period")
                          or current.get("wave_period"), "direction": current.get("swell_wave_direction")
                          or current.get("wave_direction"), "water": current.get("sea_surface_temperature"),

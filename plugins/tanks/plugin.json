@@ -4,6 +4,6 @@
   "entry": "plugin.py",
   "description": "Real levels as sloshing water: California's big reservoirs, and the space station's urine and water tanks when NASA's live feed answers.",
   "author": "Costa Mesa Tech Solutions",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "homepage": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/tanks"
 }

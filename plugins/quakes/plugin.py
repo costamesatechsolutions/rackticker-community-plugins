@@ -11,28 +11,37 @@ from datetime import datetime, timedelta, timezone
 from functools import lru_cache
 import math
 import random
+import time
 
 import aiohttp
 from PIL import Image, ImageDraw
 
-from rackticker import (Module, Plugin, Provider, Snapshot, draw_text, draw_tiny, loop_strip, new_frame,
+from rackticker import (Module, Plugin, Provider, Snapshot, draw_text, draw_tiny, new_frame,
                          text_width, tiny_width)
 
 USGS = "https://earthquake.usgs.gov/fdsnws/event/1/query"
+# RackTicker asks for news every five seconds; the USGS catalogue is a database query,
+# and a minute is as fresh as its own summary feeds get.
+ASK_EVERY = 60
 WHITE, GREY, DIM = (236, 238, 236), (140, 146, 150), (40, 44, 48)
 TRACE = (90, 230, 120)
 DRUM_SECONDS, ROW_SECONDS = 7.0, 7.0
-NAME_GAP, NAME_SPEED = 14, 18  # blank run between laps of a name too long to sit still
+NAME_REST, NAME_SPEED = 1.6, 18   # a name too long for its row sits still, then glides once to its end
 
 
 @lru_cache(maxsize=32)
-def _name_strip(name):
-    """A place name too long for its row, built once and looped rather than cut
-    mid-word."""
-    height = 9  # 7 rows plus the 2-row descenders mixed case needs
-    strip = Image.new("RGB", (text_width(name, 1, True) + NAME_GAP, height))
-    draw_text(strip, name, 0, 0, WHITE, mixed=True)
-    return strip
+def _name_stops(name, room):
+    """(what shows at rest, how far it glides) for a place name wider than its row.
+
+    Looping round and round, "Johannesburg" only ever showed as pieces ("nnesburg  J").
+    It rests on whole letters, then glides until its end is in view, stopping where a
+    letter starts, so every word is read once and it never stops on a sliver."""
+    resting = name
+    while resting and text_width(resting, 1, True) > room:
+        resting = resting[:-1]
+    full = text_width(name, 1, True)
+    stops = [text_width(name[:i], 1, True) + 1 for i in range(1, len(name))]
+    return resting.rstrip(), min([x for x in stops if full - x <= room] or [max(0, full - room)])
 
 
 def magnitude_color(value):
@@ -58,6 +67,7 @@ class Feed(Provider):
         self.context = context
         self.session = None
         self.alerted = set()
+        self.asked = (None, -1e9, None)   # (what was asked, when, the reply)
 
     async def fetch(self):
         settings = self.context.settings
@@ -66,12 +76,16 @@ class Feed(Provider):
             raise ValueError("Set your home location in Settings")
         if self.session is None or self.session.closed:
             self.session = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=5))
-        since = (datetime.now(timezone.utc) - timedelta(days=1)).strftime("%Y-%m-%dT%H:%M:%S")
-        params = {"format": "geojson", "latitude": home[0], "longitude": home[1], "orderby": "time",
-                  "maxradiuskm": round(settings["radius_miles"] * 1.609), "starttime": since, "minmagnitude": "1.5"}
-        async with self.session.get(USGS, params=params) as response:
-            response.raise_for_status()
-            payload = await response.json(content_type=None)
+        key = (home, settings["radius_miles"])
+        asked, at, payload = self.asked
+        if asked != key or time.monotonic() - at >= ASK_EVERY:
+            since = (datetime.now(timezone.utc) - timedelta(days=1)).strftime("%Y-%m-%dT%H:%M:%S")
+            params = {"format": "geojson", "latitude": home[0], "longitude": home[1], "orderby": "time",
+                      "maxradiuskm": round(settings["radius_miles"] * 1.609), "starttime": since, "minmagnitude": "1.5"}
+            async with self.session.get(USGS, params=params) as response:
+                response.raise_for_status()
+                payload = await response.json(content_type=None)
+            self.asked = (key, time.monotonic(), payload)
         quakes = []
         for feature in payload.get("features") or []:
             props, coords = feature.get("properties") or {}, (feature.get("geometry") or {}).get("coordinates")
@@ -179,11 +193,14 @@ class Seismograph(Module):
             name = quake["place"]
             if text_width(name, 1, True) <= room:
                 draw_text(frame, name, name_x, y, WHITE, mixed=True)
-            else:
+            elif room > 0:
                 # One shared clock (not staggered by row) so two rows naming the
-                # same place scroll in lockstep instead of drifting apart.
-                strip = _name_strip(name)
-                loop_strip(frame, strip, (name_x, y, room, strip.height), local, NAME_SPEED)
+                # same place move in lockstep instead of drifting apart.
+                resting, distance = _name_stops(name, room)
+                shift = min(distance, max(0, round((local % ROW_SECONDS - NAME_REST) * NAME_SPEED)))
+                cell = Image.new("RGB", (room, 9))   # 7 rows plus mixed case's 2-row descenders
+                draw_text(cell, resting if shift == 0 else name, -shift, 0, WHITE, mixed=True)
+                frame.paste(cell, (name_x, y))
 
 
 plugin = Plugin(
