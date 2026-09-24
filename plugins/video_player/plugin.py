@@ -36,6 +36,23 @@ YOUTUBE_RESOLVE_TIMEOUT = 150  # resolving the one chosen video to a direct stre
 YOUTUBE_LIST_TTL = 3600       # reuse a channel's upload list for an hour instead of re-listing each turn
 RETRY_AFTER = 60              # after a failed capture, wait this long before trying the same thing again
 
+# Seconds the current clip has actually been on the panel. The screen and its provider
+# share this: a clip is only swapped for the next once it has been watched, not every
+# watch_seconds of wall time. Rotating on the wall clock resolved a new YouTube pick
+# every half minute around the clock, most of a CPU on a Pi 3A+ (yt-dlp takes some 40 s
+# of CPU a pick) behind every other screen, for a screen up 30 s in eight minutes.
+WATCHED = {"seconds": 0.0, "last": None}
+
+
+def watched(now=None):
+    """Called for each frame the screen draws: adds the time since the last one, so
+    long as frames are coming (a gap means the screen was off the panel)."""
+    now = time.monotonic() if now is None else now
+    last = WATCHED["last"]
+    if last is not None and 0 <= now - last < .5:
+        WATCHED["seconds"] += now - last
+    WATCHED["last"] = now
+
 
 def sources(value):
     """One or more clips (or, for `youtube`, channels/searches), comma separated
@@ -189,11 +206,12 @@ class VideoProvider(Provider):
         # a fixed list of direct sources only rotates when there's more than one. Never
         # while a capture is still in flight: on a slow device that would cancel every
         # pick before it lands, and nothing new would ever play.
-        elif (now - self.rotated_at >= watch and self.task is None
+        elif (WATCHED["seconds"] >= watch and self.task is None
               and (mode == "youtube" or len(playlist) > 1)):
             self.index = (self.index + 1) % len(playlist)
             self.pick += 1
             self.rotated_at = now
+            WATCHED["seconds"] = 0.0
 
         entry = playlist[self.index]
         nonce = self.pick if mode == "youtube" else None
@@ -227,6 +245,7 @@ class VideoProvider(Provider):
                     self.key, self.error = self.task_key, None
                     # Watch time counts from when the clip actually shows, not from when it was asked for.
                     self.rotated_at = time.monotonic()
+                    WATCHED["seconds"] = 0.0
                 self.task, self.task_key = None, None
 
         if self.frames is None:
@@ -271,6 +290,7 @@ class VideoPlayer(Module):
                    else "LOADING" if not error else "BAD SOURCE")
             centered(frame, text, 12)
             return frame
+        watched()
         offset = self._index(context, snap.data) * FRAME_BYTES
         return Image.frombytes("RGB", (WIDTH, HEIGHT), snap.data["frames"][offset:offset + FRAME_BYTES])
 

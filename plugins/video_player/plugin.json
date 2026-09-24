@@ -4,6 +4,6 @@
   "entry": "plugin.py",
   "description": "Loops a short clip on the panel from a local file, a direct video URL, or any live stream ffmpeg can open. Give it several sources, or a YouTube channel, and it becomes a chill rotating channel.",
   "author": "Costa Mesa Tech Solutions",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "homepage": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/video_player"
 }
