@@ -13,6 +13,7 @@ import json
 import random
 import time
 from collections import deque
+from functools import lru_cache
 from pathlib import Path
 from urllib.parse import unquote
 
@@ -48,7 +49,7 @@ DEFAULT_CATEGORIES = ("Sports,Film,Television,Music,General knowledge,Geography,
 # What the built-in questions call themselves, when it differs from the setting's label.
 SHORT_TO_LABEL = {"Science & nature": "Science"}
 
-ROOM = 116            # pixels an answer may use: 128 minus its letter and the margins
+ROOM = 108            # pixels an answer may use: 128 minus its letter, the margins and the timer column
 MAX_QUESTION = 170    # characters; four pages of two lines is already twelve seconds of reading
 POOL = 90
 LETTERS = "ABCD"
@@ -221,15 +222,17 @@ def question_lines(text):
     return lines
 
 
+@lru_cache(maxsize=64)
 def pages_of(text):
     lines = question_lines(text)
-    return [lines[i:i + 2] for i in range(0, len(lines), 2)]
+    return tuple(tuple(lines[i:i + 2]) for i in range(0, len(lines), 2))
 
 
 def page_seconds(lines):
     return 1.8 + 0.34 * sum(len(line.split()) for line in lines)
 
 
+@lru_cache(maxsize=96)
 def page_image(lines):
     cell = Image.new("RGB", (128, 20))
     for index, line in enumerate(lines):
@@ -253,7 +256,8 @@ class Trivia(Module):
 
     def _deck(self, context):
         snap = context.snapshots.get(self.name)
-        return [item for item in (snap.data["deck"] if snap and snap.data else []) if fits(item)]
+        # The provider only pools questions that fit; measuring them again here, every frame, stalled a Pi.
+        return snap.data["deck"] if snap and snap.data else []
 
     def available(self, context):
         return bool(self._deck(context))
@@ -343,11 +347,13 @@ class Trivia(Module):
             y = index * 8
             draw_text(frame, LETTERS[index], 2, y, AMBER)
             draw_text(frame, choice, 12, y, WHITE)
+        # A column down the right edge that drains toward the bottom: it cannot be mistaken
+        # for an underline on the last answer, and it moves a row at a time.
         left = max(0.0, 1 - local / think)
         color = mix(RED, GREEN, min(1.0, left * 2.2)) if left < .45 else GREEN
-        width = round(126 * left)
-        if width:
-            frame.paste(color, (1, 31, 1 + width, 32))
+        height = round(32 * left)
+        if height:
+            frame.paste(color, (124, 32 - height, 128, 32))
 
     @staticmethod
     def _reveal(frame, item, local, t):

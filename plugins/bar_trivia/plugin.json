@@ -4,6 +4,6 @@
   "entry": "plugin.py",
   "description": "Sports-bar trivia on the panel: a question, four answers, a countdown, then the reveal. Always fresh from the free Open Trivia DB and The Trivia API; a built-in set keeps it going offline.",
   "author": "Costa Mesa Tech Solutions",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "homepage": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/bar_trivia"
 }

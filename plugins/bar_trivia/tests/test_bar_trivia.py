@@ -35,3 +35,21 @@ class BarTrivia(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PerFrameCost(unittest.TestCase):
+    def test_available_and_render_stay_cheap_with_a_full_pool(self):
+        import time
+        from types import SimpleNamespace
+        pool = trivia.bundled() * 3
+        context = SimpleNamespace(snapshots={"bar_trivia": SimpleNamespace(data={"deck": pool})}, animation_time=7.0,
+                                  scene=1, config={"display": {"fps": 30}, "plugins": {"bar_trivia": {
+                                      "categories": trivia.DEFAULT_CATEGORIES, "questions_per_visit": 3,
+                                      "think_seconds": 10}}})
+        module = trivia.Trivia()
+        module.render(context)
+        start = time.perf_counter()
+        for _ in range(200):
+            self.assertTrue(module.available(context))
+            module.render(context)
+        self.assertLess((time.perf_counter() - start) / 200, 0.003)   # the Pi is ~6x slower than this
