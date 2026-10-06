@@ -50,10 +50,13 @@ DEFAULT_CATEGORIES = ("Sports,Film,Television,Music,General knowledge,Geography,
 SHORT_TO_LABEL = {"Science & nature": "Science"}
 
 ROOM = 108            # pixels an answer may use: 128 minus its letter, the margins and the timer column
-MAX_QUESTION = 170    # characters; four pages of two lines is already twelve seconds of reading
+MAX_QUESTION = 200    # characters; four pages of two lines is already twelve seconds of reading
 POOL = 90
 LETTERS = "ABCD"
+MAX_PAGES = 3
 REVEAL = 5.0
+LINES, LINE_HEIGHT, PAGE_HEIGHT = 3, 10, 29   # three lines of 5x7 lowercase fill the panel
+TEXT_X, TEXT_WIDTH = 5, 120                   # the category stripe takes the first two columns
 SLIDE = 0.28
 SPLASH_SPEED = 1.8   # the lettering's own timeline runs long; a splash should be a moment
 BAD_WORDS = ("picture", "pictured", "image", "photo", "shown", "pictured", "logo", "video", "listen", "audio")
@@ -85,7 +88,7 @@ def build_question(category, question, correct, wrong, rng):
 def fits(item):
     """Every answer on one line beside its letter, so nothing is ever cut off."""
     return (all(text_width(choice) <= ROOM for choice in item["choices"])
-            and len(question_lines(item["question"])) <= 8)
+            and len(question_lines(item["question"])) <= 3 * MAX_PAGES)
 
 
 def label_of(name):
@@ -127,7 +130,7 @@ class Feed(Provider):
         if time.monotonic() >= self.next_ask:
             try:
                 await self._ask()
-            except (aiohttp.ClientError, TimeoutError, ValueError, KeyError, TypeError):
+            except Exception:   # any bad reply or network hiccup: keep the pool, try again later
                 self.next_ask = time.monotonic() + 45
         return Snapshot({"deck": list(self.pool)})
 
@@ -212,12 +215,13 @@ class Feed(Provider):
 
 
 def question_lines(text):
-    """Whole-word lines, balanced so the last page is never a lone orphan line."""
-    lines = wrap_text(text, 124, 1, True)
-    if len(lines) > 1 and len(lines) % 2:
-        for width in range(120, 70, -4):
+    """Whole-word lines that fit beside the category stripe, re-wrapped narrower when
+    the last page would otherwise hold a lone line."""
+    lines = wrap_text(text, TEXT_WIDTH, 1, True)
+    if len(lines) > 3 and len(lines) % 3 == 1:
+        for width in range(TEXT_WIDTH - 4, 70, -4):
             narrower = wrap_text(text, width, 1, True)
-            if len(narrower) == len(lines) + 1:
+            if len(narrower) % 3 != 1 and len(narrower) <= len(lines) + 2:
                 return narrower
     return lines
 
@@ -225,7 +229,7 @@ def question_lines(text):
 @lru_cache(maxsize=64)
 def pages_of(text):
     lines = question_lines(text)
-    return tuple(tuple(lines[i:i + 2]) for i in range(0, len(lines), 2))
+    return tuple(tuple(lines[i:i + LINES]) for i in range(0, len(lines), LINES))
 
 
 def page_seconds(lines):
@@ -233,10 +237,14 @@ def page_seconds(lines):
 
 
 @lru_cache(maxsize=96)
-def page_image(lines):
-    cell = Image.new("RGB", (128, 20))
+def page_image(lines, category):
+    """One page of the question, with its category in the corner when there is room."""
+    cell = Image.new("RGB", (128, PAGE_HEIGHT))
     for index, line in enumerate(lines):
-        draw_text(cell, line, 2, index * 9, WHITE, mixed=True)
+        draw_text(cell, line, TEXT_X, index * LINE_HEIGHT, WHITE, mixed=True)
+    if len(lines) < LINES:
+        _, _, short, color = CATEGORIES[category]
+        draw_tiny(cell, short, TEXT_X, PAGE_HEIGHT - 5, color)
     return cell
 
 
@@ -324,26 +332,23 @@ class Trivia(Module):
 
     @staticmethod
     def _question(frame, step, pages, local):
-        item = step["q"]
-        _, _, short, color = CATEGORIES[item["category"]]
-        draw_tiny(frame, short, 2, 1, color)
+        category = step["q"]["category"]
         start, index = 0.0, 0
         for index, page in enumerate(pages):
             if local < start + page_seconds(page):
                 break
             start += page_seconds(page)
-        page = pages[index]
         into = local - start
-        region = Image.new("RGB", (128, 20))
-        if not index and into < SLIDE:
-            region.paste(page_image(page), (0, round(20 * (1 - ease_out(into / SLIDE)))))
-        elif index and into < SLIDE:
-            shift = round(20 * ease_out(into / SLIDE))
-            region.paste(page_image(pages[index - 1]), (0, -shift))
-            region.paste(page_image(page), (0, 20 - shift))
+        image = page_image(pages[index], category)
+        if into >= SLIDE:
+            frame.paste(image, (0, 1))
         else:
-            region.paste(page_image(page), (0, 0))
-        frame.paste(region, (0, 10))
+            # Each page rolls up from below as the last one rolls away.
+            shift = round(PAGE_HEIGHT * ease_out(into / SLIDE))
+            if index:
+                frame.paste(page_image(pages[index - 1], category), (0, 1 - shift))
+            frame.paste(image, (0, 1 + PAGE_HEIGHT - shift))
+        frame.paste(CATEGORIES[category][3], (0, 0, 2, 32))
 
     @staticmethod
     def _choices(frame, item, local, think):
@@ -369,17 +374,17 @@ class Trivia(Module):
         letter = LETTERS[item["answer"]]
         color = mix((0, 0, 0), WHITE, ease_out(local / .4))
         gold = mix((0, 0, 0), AMBER, ease_out(local / .4))
-        if text_width(answer, 2, True) + 16 <= 122:
-            width = text_width(answer, 2, True) + 16
-            x = (128 - width) // 2
-            draw_text(frame, letter, x, 12, gold, 2, True)
-            draw_text(frame, answer, x + 16, 12, color, 2, True, True)
+        gap = 9
+        if text_width(answer, 2, True) + 5 + gap <= 120:
+            x = (128 - (5 + gap + text_width(answer, 2, True))) // 2
+            draw_text(frame, letter, x, 16, gold)
+            draw_text(frame, answer, x + 5 + gap, 12, color, 2, True, True)
             return
-        lines = wrap_text(answer, 104, 1, True)[:2]
+        lines = wrap_text(answer, 100, 1, True)[:2]
         top = 12 if len(lines) == 1 else 10
-        draw_text(frame, letter, 6, 12 if len(lines) == 1 else 10, gold, 2, True)
+        draw_text(frame, letter, 8, 14, gold)
         for number, line in enumerate(lines):
-            draw_text(frame, line, 24, top + number * 9, color, mixed=True)
+            draw_text(frame, line, 8 + 5 + gap, top + number * 9, color, mixed=True)
 
 
 def validate(settings):
