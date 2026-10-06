@@ -53,7 +53,7 @@ ROOM = 108            # pixels an answer may use: 128 minus its letter, the marg
 MAX_QUESTION = 170    # characters; four pages of two lines is already twelve seconds of reading
 POOL = 90
 LETTERS = "ABCD"
-REVEAL = 4.5
+REVEAL = 5.0
 SLIDE = 0.28
 SPLASH_SPEED = 1.8   # the lettering's own timeline runs long; a splash should be a moment
 BAD_WORDS = ("picture", "pictured", "image", "photo", "shown", "pictured", "logo", "video", "listen", "audio")
@@ -250,6 +250,7 @@ class Trivia(Module):
     def __init__(self):
         self.board = Storyboard(resume=False)
         self.shown = deque(maxlen=400)
+        self.last_category = None
 
     def refresh_interval(self, context):
         return 1 / context.config["display"]["fps"]
@@ -272,7 +273,12 @@ class Trivia(Module):
             wanted = set(selected(settings))
             deck = [item for item in deck if item["category"] in wanted] or deck
             unseen = [item for item in deck if item["id"] not in self.shown] or deck
-            picks = random.sample(unseen, min(int(settings["questions_per_visit"]), len(unseen)))
+            picks = []
+            for _ in range(min(int(settings["questions_per_visit"]), len(unseen))):
+                pool = [item for item in unseen if item not in picks]
+                varied = [item for item in pool if item["category"] != self.last_category] or pool
+                picks.append(random.choice(varied))
+                self.last_category = picks[-1]["category"]
             self.shown.extend(item["id"] for item in picks)
             rng = random.Random()
             splash = Lettering("TRIVIA", rng.choice(EFFECTS), ((255, 178, 89), (90, 200, 255)), "alternate",
@@ -329,7 +335,9 @@ class Trivia(Module):
         page = pages[index]
         into = local - start
         region = Image.new("RGB", (128, 20))
-        if index and into < SLIDE:
+        if not index and into < SLIDE:
+            region.paste(page_image(page), (0, round(20 * (1 - ease_out(into / SLIDE)))))
+        elif index and into < SLIDE:
             shift = round(20 * ease_out(into / SLIDE))
             region.paste(page_image(pages[index - 1]), (0, -shift))
             region.paste(page_image(page), (0, 20 - shift))
@@ -358,14 +366,20 @@ class Trivia(Module):
         bulb_border(frame, t, (GREEN, WHITE))
         draw_tiny(frame, "THE ANSWER", (128 - tiny_width("THE ANSWER")) // 2, 4, GREEN)
         answer = item["choices"][item["answer"]]
+        letter = LETTERS[item["answer"]]
         color = mix((0, 0, 0), WHITE, ease_out(local / .4))
-        if text_width(answer, 2, True) <= 120:
-            draw_text(frame, answer, (128 - text_width(answer, 2, True)) // 2, 12, color, 2, True, True)
+        gold = mix((0, 0, 0), AMBER, ease_out(local / .4))
+        if text_width(answer, 2, True) + 16 <= 122:
+            width = text_width(answer, 2, True) + 16
+            x = (128 - width) // 2
+            draw_text(frame, letter, x, 12, gold, 2, True)
+            draw_text(frame, answer, x + 16, 12, color, 2, True, True)
             return
-        lines = wrap_text(answer, 118, 1, True)[:2]
+        lines = wrap_text(answer, 104, 1, True)[:2]
         top = 12 if len(lines) == 1 else 10
+        draw_text(frame, letter, 6, 12 if len(lines) == 1 else 10, gold, 2, True)
         for number, line in enumerate(lines):
-            draw_text(frame, line, (128 - text_width(line, 1, True)) // 2, top + number * 9, color, mixed=True)
+            draw_text(frame, line, 24, top + number * 9, color, mixed=True)
 
 
 def validate(settings):
