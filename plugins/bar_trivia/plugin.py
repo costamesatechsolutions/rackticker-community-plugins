@@ -54,9 +54,10 @@ MAX_QUESTION = 200    # characters; four pages of two lines is already twelve se
 POOL = 90
 LETTERS = "ABCD"
 MAX_PAGES = 3
+BADGE = 9   # the answer letter's tile
 REVEAL = 5.0
-LINES, LINE_HEIGHT, PAGE_HEIGHT = 3, 10, 29   # three lines of 5x7 lowercase fill the panel
-TEXT_X, TEXT_WIDTH = 5, 120                   # the category stripe takes the first two columns
+LINES, LINE_HEIGHT, PAGE_HEIGHT, LABEL_STRIP = 3, 10, 29, 7   # three lines of 5x7 lowercase fill the panel
+TEXT_X, TEXT_WIDTH = 5, 122                   # the category stripe takes the first two columns
 SLIDE = 0.28
 SPLASH_SPEED = 1.8   # the lettering's own timeline runs long; a splash should be a moment
 BAD_WORDS = ("picture", "pictured", "image", "photo", "shown", "pictured", "logo", "video", "listen", "audio")
@@ -88,7 +89,7 @@ def build_question(category, question, correct, wrong, rng):
 def fits(item):
     """Every answer on one line beside its letter, so nothing is ever cut off."""
     return (all(text_width(choice) <= ROOM for choice in item["choices"])
-            and len(question_lines(item["question"])) <= 3 * MAX_PAGES)
+            and len(wrap_text(item["question"], TEXT_WIDTH, 1, True)) <= 3 * MAX_PAGES - 1)
 
 
 def label_of(name):
@@ -215,21 +216,30 @@ class Feed(Provider):
 
 
 def question_lines(text):
-    """Whole-word lines that fit beside the category stripe, re-wrapped narrower when
-    the last page would otherwise hold a lone line."""
+    """Whole-word lines, balanced: the fewest lines the width allows, then as even as possible,
+    so a question never ends in a stub like "Corona?" under one long line."""
     lines = wrap_text(text, TEXT_WIDTH, 1, True)
-    if len(lines) > 3 and len(lines) % 3 == 1:
-        for width in range(TEXT_WIDTH - 4, 70, -4):
-            narrower = wrap_text(text, width, 1, True)
-            if len(narrower) % 3 != 1 and len(narrower) <= len(lines) + 2:
-                return narrower
-    return lines
+    best = lines
+    for width in range(TEXT_WIDTH - 2, 39, -2):
+        narrower = wrap_text(text, width, 1, True)
+        if len(narrower) != len(lines):
+            break
+        best = narrower
+    return best
 
 
 @lru_cache(maxsize=64)
 def pages_of(text):
+    """Pages of up to three lines, shared out evenly (4 lines read as 2 + 2, never 3 + 1)."""
     lines = question_lines(text)
-    return tuple(tuple(lines[i:i + LINES]) for i in range(0, len(lines), LINES))
+    count = -(-len(lines) // LINES)
+    base, extra = divmod(len(lines), count)
+    pages, at = [], 0
+    for number in range(count):
+        size = base + (number < extra)
+        pages.append(tuple(lines[at:at + size]))
+        at += size
+    return tuple(pages)
 
 
 def page_seconds(lines):
@@ -238,13 +248,18 @@ def page_seconds(lines):
 
 @lru_cache(maxsize=96)
 def page_image(lines, category):
-    """One page of the question, with its category in the corner when there is room."""
+    """One page of the question, centred in the space above its category name."""
     cell = Image.new("RGB", (128, PAGE_HEIGHT))
-    for index, line in enumerate(lines):
-        draw_text(cell, line, TEXT_X, index * LINE_HEIGHT, WHITE, mixed=True)
+    height = len(lines) * LINE_HEIGHT - 1
     if len(lines) < LINES:
+        room = PAGE_HEIGHT - LABEL_STRIP
         _, _, short, color = CATEGORIES[category]
         draw_tiny(cell, short, TEXT_X, PAGE_HEIGHT - 5, color)
+    else:
+        room = PAGE_HEIGHT
+    top = max(0, (room - height) // 2)
+    for index, line in enumerate(lines):
+        draw_text(cell, line, TEXT_X, top + index * LINE_HEIGHT, WHITE, mixed=True)
     return cell
 
 
@@ -369,22 +384,26 @@ class Trivia(Module):
     @staticmethod
     def _reveal(frame, item, local, t):
         bulb_border(frame, t, (GREEN, WHITE))
-        draw_tiny(frame, "THE ANSWER", (128 - tiny_width("THE ANSWER")) // 2, 4, GREEN)
+        fade = ease_out(local / .4)
         answer = item["choices"][item["answer"]]
-        letter = LETTERS[item["answer"]]
-        color = mix((0, 0, 0), WHITE, ease_out(local / .4))
-        gold = mix((0, 0, 0), AMBER, ease_out(local / .4))
-        gap = 9
-        if text_width(answer, 2, True) + 5 + gap <= 120:
-            x = (128 - (5 + gap + text_width(answer, 2, True))) // 2
-            draw_text(frame, letter, x, 16, gold)
-            draw_text(frame, answer, x + 5 + gap, 12, color, 2, True, True)
+        # Header: the letter on an amber tile, then "THE ANSWER", centred as one group.
+        label = "THE ANSWER"
+        left = (128 - (BADGE + 5 + tiny_width(label))) // 2
+        frame.paste(AMBER, (left, 2, left + BADGE, 2 + BADGE))
+        for corner in ((left, 2), (left + BADGE - 1, 2), (left, 1 + BADGE), (left + BADGE - 1, 1 + BADGE)):
+            frame.putpixel(corner, (0, 0, 0))
+        draw_text(frame, LETTERS[item["answer"]], left + 2, 3, (0, 0, 0))
+        draw_tiny(frame, label, left + BADGE + 5, 4, GREEN)
+        color = mix((0, 0, 0), WHITE, fade)
+        if text_width(answer, 2, True) <= 120:
+            # Letters that hang below the line (g, p, y) need the extra row, or they touch the border.
+            hangs = any(c in "gjpqy,;" for c in answer)
+            draw_text(frame, answer, (128 - text_width(answer, 2, True)) // 2, 13 if hangs else 14, color, 2, True, True)
             return
-        lines = wrap_text(answer, 100, 1, True)[:2]
-        top = 12 if len(lines) == 1 else 10
-        draw_text(frame, letter, 8, 14, gold)
+        lines = wrap_text(answer, 120, 1, True)[:2]
+        top = 16 if len(lines) == 1 else 13
         for number, line in enumerate(lines):
-            draw_text(frame, line, 8 + 5 + gap, top + number * 9, color, mixed=True)
+            draw_text(frame, line, (128 - text_width(line, 1, True)) // 2, top + number * 9, color, mixed=True)
 
 
 def validate(settings):

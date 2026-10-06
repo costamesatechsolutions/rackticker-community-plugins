@@ -27,17 +27,19 @@ class BarTrivia(unittest.TestCase):
         self.assertIsNone(trivia.build_question("Film", "Name it?", "A very long answer indeed here",
                                                 ["B", "C", "D"], rng))
 
-    def test_pages_fill_the_panel_and_never_end_on_an_orphan_line(self):
+    def test_pages_are_even_and_never_end_on_a_stub(self):
         long = ("Which of these famous explorers was the first European to reach the Pacific Ocean "
                 "after crossing the Isthmus of Panama in the early sixteenth century?")
-        for text in (long, "Which Disney movie features the song Let It Go?", "Who directed Jaws?"):
+        four = "What fruit is traditionally pushed into the neck of a Corona?"
+        for text in (long, four, "Which Disney movie features the song Let It Go?", "Who directed Jaws?"):
             pages = trivia.pages_of(text)
-            self.assertTrue(all(len(page) == 3 for page in pages[:-1]))
-            if len(pages) > 1:
-                self.assertGreater(len(pages[-1]), 1, text)
+            sizes = [len(page) for page in pages]
+            self.assertTrue(all(1 <= size <= 3 for size in sizes), sizes)
+            self.assertLessEqual(max(sizes) - min(sizes), 1, (text, sizes))
             for page in pages:
                 for line in page:
                     self.assertLessEqual(trivia.text_width(line, 1, True), trivia.TEXT_WIDTH)
+        self.assertEqual([len(p) for p in trivia.pages_of(four)], [2, 2])
 
 
 class PerFrameCost(unittest.TestCase):
