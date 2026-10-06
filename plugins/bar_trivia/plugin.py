@@ -20,7 +20,7 @@ from urllib.parse import unquote
 import aiohttp
 from PIL import Image
 
-from rackticker import (AMBER, EFFECTS, GREEN, MUTED, RED, WHITE, Lettering, Module, Plugin, Provider,
+from rackticker import (AMBER, EFFECTS, GREEN, RED, WHITE, Lettering, Module, Plugin, Provider,
                         Snapshot, Storyboard, bulb_border, draw_text, draw_tiny, ease_out, mix, new_frame,
                         text_width, tiny_width, wrap_text)
 
@@ -321,8 +321,6 @@ class Trivia(Module):
         item = step["q"]
         _, _, short, color = CATEGORIES[item["category"]]
         draw_tiny(frame, short, 2, 1, color)
-        count = f"{step['number']}/{step['count']}"
-        draw_tiny(frame, count, 126 - tiny_width(count), 1, MUTED)
         start, index = 0.0, 0
         for index, page in enumerate(pages):
             if local < start + page_seconds(page):
