@@ -1,0 +1,352 @@
+[
+ {
+  "category": "Sports",
+  "question": "How many players from one team are on the ice at once in the NHL, goalie included?",
+  "correct": "6",
+  "wrong": [
+   "5",
+   "7",
+   "4"
+  ]
+ },
+ {
+  "category": "Sports",
+  "question": "How many points is a touchdown worth before the extra point?",
+  "correct": "6",
+  "wrong": [
+   "7",
+   "3",
+   "8"
+  ]
+ },
+ {
+  "category": "Sports",
+  "question": "How many holes are played in a standard round of golf?",
+  "correct": "18",
+  "wrong": [
+   "9",
+   "12",
+   "21"
+  ]
+ },
+ {
+  "category": "Sports",
+  "question": "What is the diameter of a basketball hoop, in inches?",
+  "correct": "18",
+  "wrong": [
+   "16",
+   "20",
+   "24"
+  ]
+ },
+ {
+  "category": "Sports",
+  "question": "Which country hosted the 2016 Summer Olympics?",
+  "correct": "Brazil",
+  "wrong": [
+   "China",
+   "England",
+   "Greece"
+  ]
+ },
+ {
+  "category": "Sports",
+  "question": "What color jersey does the Tour de France race leader wear?",
+  "correct": "Yellow",
+  "wrong": [
+   "Green",
+   "Red",
+   "White"
+  ]
+ },
+ {
+  "category": "Sports",
+  "question": "In which city did the Lakers play before moving to Los Angeles?",
+  "correct": "Minneapolis",
+  "wrong": [
+   "Chicago",
+   "Detroit",
+   "St. Louis"
+  ]
+ },
+ {
+  "category": "Sports",
+  "question": "Which baseball legend was nicknamed the Bambino?",
+  "correct": "Babe Ruth",
+  "wrong": [
+   "Lou Gehrig",
+   "Ty Cobb",
+   "Joe DiMaggio"
+  ]
+ },
+ {
+  "category": "Sports",
+  "question": "What is a score of three under par on a single golf hole called?",
+  "correct": "Albatross",
+  "wrong": [
+   "Eagle",
+   "Birdie",
+   "Condor"
+  ]
+ },
+ {
+  "category": "Sports",
+  "question": "Which NBA player once scored 100 points in a single game?",
+  "correct": "Wilt Chamberlain",
+  "wrong": [
+   "Michael Jordan",
+   "Kobe Bryant",
+   "Larry Bird"
+  ]
+ },
+ {
+  "category": "Sports",
+  "question": "How many players does one soccer team have on the field?",
+  "correct": "11",
+  "wrong": [
+   "9",
+   "10",
+   "12"
+  ]
+ },
+ {
+  "category": "Food & Drink",
+  "question": "What spirit is the base of a classic margarita?",
+  "correct": "Tequila",
+  "wrong": [
+   "Rum",
+   "Vodka",
+   "Gin"
+  ]
+ },
+ {
+  "category": "Food & Drink",
+  "question": "In which city were Buffalo wings invented?",
+  "correct": "Buffalo",
+  "wrong": [
+   "Rochester",
+   "Albany",
+   "Syracuse"
+  ]
+ },
+ {
+  "category": "Food & Drink",
+  "question": "Which of these peppers is the hottest?",
+  "correct": "Carolina Reaper",
+  "wrong": [
+   "Habanero",
+   "Jalapeno",
+   "Cayenne"
+  ]
+ },
+ {
+  "category": "Food & Drink",
+  "question": "What type of beer is Guinness?",
+  "correct": "Stout",
+  "wrong": [
+   "Lager",
+   "Pilsner",
+   "IPA"
+  ]
+ },
+ {
+  "category": "Food & Drink",
+  "question": "What fruit is traditionally pushed into the neck of a Corona?",
+  "correct": "Lime",
+  "wrong": [
+   "Lemon",
+   "Orange",
+   "Grapefruit"
+  ]
+ },
+ {
+  "category": "Food & Drink",
+  "question": "What is the main ingredient in guacamole?",
+  "correct": "Avocado",
+  "wrong": [
+   "Tomato",
+   "Cucumber",
+   "Green pepper"
+  ]
+ },
+ {
+  "category": "Music",
+  "question": "Which band released Bohemian Rhapsody?",
+  "correct": "Queen",
+  "wrong": [
+   "The Beatles",
+   "Led Zeppelin",
+   "Kiss"
+  ]
+ },
+ {
+  "category": "Music",
+  "question": "How many strings does a standard guitar have?",
+  "correct": "6",
+  "wrong": [
+   "4",
+   "5",
+   "7"
+  ]
+ },
+ {
+  "category": "Music",
+  "question": "Which artist is known as the King of Pop?",
+  "correct": "Michael Jackson",
+  "wrong": [
+   "Prince",
+   "Elvis Presley",
+   "Usher"
+  ]
+ },
+ {
+  "category": "Film",
+  "question": "Who directed the 1975 film Jaws?",
+  "correct": "Steven Spielberg",
+  "wrong": [
+   "George Lucas",
+   "Ridley Scott",
+   "James Cameron"
+  ]
+ },
+ {
+  "category": "Film",
+  "question": "Which Disney movie features the song Let It Go?",
+  "correct": "Frozen",
+  "wrong": [
+   "Moana",
+   "Tangled",
+   "Brave"
+  ]
+ },
+ {
+  "category": "Television",
+  "question": "In the US version of The Office, what is the paper company called?",
+  "correct": "Dunder Mifflin",
+  "wrong": [
+   "Sabre",
+   "Staples",
+   "Prestige Paper"
+  ]
+ },
+ {
+  "category": "Television",
+  "question": "In Friends, what is the name of Ross's pet monkey?",
+  "correct": "Marcel",
+  "wrong": [
+   "George",
+   "Abu",
+   "Gunther"
+  ]
+ },
+ {
+  "category": "Geography",
+  "question": "What is the capital of Australia?",
+  "correct": "Canberra",
+  "wrong": [
+   "Sydney",
+   "Melbourne",
+   "Perth"
+  ]
+ },
+ {
+  "category": "Geography",
+  "question": "Which is the largest ocean on Earth?",
+  "correct": "Pacific",
+  "wrong": [
+   "Atlantic",
+   "Indian",
+   "Arctic"
+  ]
+ },
+ {
+  "category": "Geography",
+  "question": "Which US state has the most people?",
+  "correct": "California",
+  "wrong": [
+   "Texas",
+   "Florida",
+   "New York"
+  ]
+ },
+ {
+  "category": "Geography",
+  "question": "What is the longest river in the United States?",
+  "correct": "Missouri",
+  "wrong": [
+   "Mississippi",
+   "Colorado",
+   "Ohio"
+  ]
+ },
+ {
+  "category": "History",
+  "question": "In what year did the Titanic sink?",
+  "correct": "1912",
+  "wrong": [
+   "1905",
+   "1915",
+   "1921"
+  ]
+ },
+ {
+  "category": "History",
+  "question": "Who was the first President of the United States?",
+  "correct": "George Washington",
+  "wrong": [
+   "John Adams",
+   "Thomas Jefferson",
+   "Ben Franklin"
+  ]
+ },
+ {
+  "category": "Science",
+  "question": "Which planet is known as the Red Planet?",
+  "correct": "Mars",
+  "wrong": [
+   "Venus",
+   "Jupiter",
+   "Mercury"
+  ]
+ },
+ {
+  "category": "Science",
+  "question": "How many bones are in the adult human body?",
+  "correct": "206",
+  "wrong": [
+   "186",
+   "212",
+   "256"
+  ]
+ },
+ {
+  "category": "Science",
+  "question": "What is the chemical symbol for gold?",
+  "correct": "Au",
+  "wrong": [
+   "Ag",
+   "Go",
+   "Gd"
+  ]
+ },
+ {
+  "category": "Video games",
+  "question": "What is the name of Mario's brother?",
+  "correct": "Luigi",
+  "wrong": [
+   "Wario",
+   "Toad",
+   "Yoshi"
+  ]
+ },
+ {
+  "category": "Video games",
+  "question": "In which game series do you play a hero named Link?",
+  "correct": "The Legend of Zelda",
+  "wrong": [
+   "Metroid",
+   "Donkey Kong",
+   "Pac-Man"
+  ]
+ }
+]

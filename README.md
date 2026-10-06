@@ -16,6 +16,7 @@ plugin's folder link. They also show up in the built-in browser, which reads
 
 | Plugin | What it does | Install |
 | --- | --- | --- |
+| [Bar trivia](plugins/bar_trivia) | Sports-bar trivia on the panel: a question, four answers with a countdown bar, then the reveal. Always-fresh questions from the free Open Trivia DB and The Trivia API, with a built-in set for when the network is down. | [folder](https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/bar_trivia) |
 | [Departures](plugins/departures) | Live station boards: the London Underground in its own line colours, Metrolink and Amtrak across the United States, BART, and seven European stations, each drawn the way that country's boards look, with trains pulling into the platform. | [folder](https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/departures) |
 | [Onboard](plugins/onboard) | The display above the carriage doors, for a train that is really running: the next stop in big letters, when it gets there, how fast it is going, whether it is on time, and the train moving along the line to it. | [folder](https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/onboard) |
 | [Surf](plugins/surf) | The surf at your break: wave height, swell period and direction, water temperature, and real water — a simulated sea driven by the actual swell, sitting high or low with the actual tide. | [folder](https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/surf) |

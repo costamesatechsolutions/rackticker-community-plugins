@@ -9,6 +9,13 @@
       "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/arcade"
     },
     {
+      "id": "bar_trivia",
+      "name": "Bar trivia",
+      "author": "Costa Mesa Tech Solutions",
+      "description": "Sports-bar trivia on the panel: a question, four answers, a countdown, then the reveal. Always fresh from the free Open Trivia DB and The Trivia API; a built-in set keeps it going offline.",
+      "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/bar_trivia"
+    },
+    {
       "id": "departures",
       "name": "Departures",
       "author": "Costa Mesa Tech Solutions",
