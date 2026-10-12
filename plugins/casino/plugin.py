@@ -41,6 +41,10 @@ def pegs():
 
 
 PEGS = pegs()
+PEGS_NEAR = {}      # pegs by the rows a chip could touch them from, so a fall checks a handful, not all 77
+for _peg in PEGS:
+    for _row in range(_peg[1] - 2, _peg[1] + 3):
+        PEGS_NEAR.setdefault(_row, []).append(_peg)
 
 
 @lru_cache(maxsize=64)
@@ -54,7 +58,7 @@ def drop(seed):
         vy += 60 * STEP
         x += vx * STEP
         y += vy * STEP
-        for px, py in PEGS:
+        for px, py in PEGS_NEAR.get(round(y), ()):
             dx, dy = x - px, y - py
             distance = math.hypot(dx, dy)
             if distance < 1.6 and dy < .6:
