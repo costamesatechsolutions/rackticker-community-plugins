@@ -237,7 +237,7 @@ class Feed(Provider):
                 self.asked["flare"] = (None, time.monotonic() - FLARES_EVERY + 60)
         if failures and not (self.data["sun"] or self.data["earth"]):
             raise failures[0]
-        return Snapshot(dict(self.data))
+        return Snapshot({**self.data, "home": (settings["latitude"], settings["longitude"])})
 
     async def close(self):
         if self.session and not self.session.closed:
@@ -302,7 +302,7 @@ class ThreeBodies(Module):
         data = snap.data if snap and snap.data else {}
         settings = context.config["plugins"][self.name]
         ts = context.now.timestamp()
-        southern = settings["latitude"] < 0
+        southern = (data.get("home") or (0, 0))[0] < 0
         moon_image = moon_disc(round(elongation(ts) / 2) % 180, southern)
         sun_image = picture(data["sun"]) if data.get("sun") else None
         earth_image = picture(data["earth"]) if data.get("earth") else None

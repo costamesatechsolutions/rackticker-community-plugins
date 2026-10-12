@@ -97,8 +97,10 @@ class Feed(Provider):
             return await response.json(content_type=None)
 
     async def fetch(self):
+        settings = self.context.settings
+        home = (settings["latitude"], settings["longitude"])
         if time.monotonic() - self.asked < ASK_EVERY and self.data:
-            return Snapshot(self.data)
+            return Snapshot({**self.data, "home": home})
         if self.session is None or self.session.closed:
             self.session = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=5),
                                                  headers={"User-Agent": "RackTicker space weather plugin"})
@@ -142,7 +144,7 @@ class Feed(Provider):
             raise failures[0]
         self.data = data
         self._alerts(data)
-        return Snapshot(data)
+        return Snapshot({**data, "home": home})
 
     def _alerts(self, data):
         settings = self.context.settings
@@ -205,7 +207,7 @@ class SpaceWeather(Module):
             cards.append("wind")
         if data.get("xrays"):
             cards.append("xrays")
-        if "kp" in data and (settings["latitude"], settings["longitude"]) != (0, 0):
+        if "kp" in data and tuple(data.get("home") or (0, 0)) != (0, 0):
             cards.append("aurora")
 
         def build(visit):
@@ -296,7 +298,7 @@ class SpaceWeather(Module):
 
     @staticmethod
     def _aurora(frame, data, settings, context, local):
-        mlat = magnetic_latitude(settings["latitude"], settings["longitude"])
+        mlat = magnetic_latitude(*data["home"])
         needed = kp_for_aurora(mlat)
         kp = data["kp"]
         ts = context.now.timestamp()

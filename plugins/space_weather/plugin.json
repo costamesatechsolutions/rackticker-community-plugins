@@ -4,6 +4,6 @@
   "entry": "plugin.py",
   "description": "What the Sun is doing to the Earth, from NOAA: the geomagnetic storm level with yesterday and the forecast as bars, the solar wind streaming past at its real speed, six hours of solar X-rays on the flare scale, and whether the northern lights could reach you.",
   "author": "Costa Mesa Tech Solutions",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "homepage": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/space_weather"
 }

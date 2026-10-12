@@ -5,7 +5,7 @@ import unittest
 
 import plugin as sw
 
-SETTINGS = {"latitude": 47.6, "longitude": -122.3, "alert": True}
+SETTINGS = {"latitude": 0.0, "longitude": 0.0, "alert": True}
 
 
 def context(t, data):
@@ -35,7 +35,7 @@ class ScreenTests(unittest.TestCase):
     def test_every_card(self):
         start = datetime(2026, 10, 11, 12, tzinfo=timezone.utc).timestamp()
         data = {"kp": 5.3, "g": 1, "speed": 640, "bz": -9, "bt": 12, "xrays": [1e-6 * (1 + i % 50) for i in range(360)],
-                "bars": [(start + i * 10800, i % 9, i < 5) for i in range(16)]}
+                "bars": [(start + i * 10800, i % 9, i < 5) for i in range(16)], "home": (47.6, -122.3)}
         module = sw.SpaceWeather()
         frames = {module.render(context(t, data)).tobytes() for t in (1, 5, 9, 13, 17, 21, 25, 29)}
         self.assertGreaterEqual(len(frames), 6)
