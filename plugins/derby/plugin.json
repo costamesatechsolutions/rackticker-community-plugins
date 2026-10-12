@@ -1,0 +1,9 @@
+{
+  "id": "derby",
+  "name": "Derby night",
+  "entry": "plugin.py",
+  "description": "A horse race that runs itself, sportsbook style: the tote board with the morning line, the gate, the field down the stretch with the running order, a photo finish when it is close, and what a $2 ticket paid. No betting, just the show.",
+  "author": "Costa Mesa Tech Solutions",
+  "version": "1.0.0",
+  "homepage": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/derby"
+}

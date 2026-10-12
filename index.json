@@ -23,6 +23,13 @@
       "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/departures"
     },
     {
+      "id": "derby",
+      "name": "Derby night",
+      "author": "Costa Mesa Tech Solutions",
+      "description": "A horse race that runs itself, sportsbook style: the tote board with the morning line, the gate, the field down the stretch with the running order, a photo finish when it is close, and what a $2 ticket paid. No betting, just the show.",
+      "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/derby"
+    },
+    {
       "id": "f1",
       "name": "Formula 1",
       "author": "Costa Mesa Tech Solutions",
