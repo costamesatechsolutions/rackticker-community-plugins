@@ -1,0 +1,9 @@
+{
+  "id": "launches",
+  "name": "Launches",
+  "entry": "plugin.py",
+  "description": "The next rockets to fly, each with a countdown, its status and where it goes from. Launches you can see from home come first, with which way to look and a twilight flag for the glowing 'jellyfish'; ten minutes before one, the screen takes over for the count and liftoff.",
+  "author": "Costa Mesa Tech Solutions",
+  "version": "1.0.0",
+  "homepage": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/launches"
+}

@@ -44,6 +44,13 @@
       "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/iss"
     },
     {
+      "id": "launches",
+      "name": "Launches",
+      "author": "Costa Mesa Tech Solutions",
+      "description": "The next rockets to fly, each with a countdown, its status and where it goes from. Launches you can see from home come first, with which way to look and a twilight flag for the glowing 'jellyfish'; ten minutes before one, the screen takes over for the count and liftoff.",
+      "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/launches"
+    },
+    {
       "id": "markets",
       "name": "Prediction markets",
       "author": "Costa Mesa Tech Solutions",
