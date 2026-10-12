@@ -219,6 +219,13 @@
       "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/wiki_pulse"
     },
     {
+      "id": "wildfires",
+      "name": "Wildfires",
+      "author": "Costa Mesa Tech Solutions",
+      "description": "The fires burning near you, anywhere in the US: how many are active within your distance, then each of the nearest with a flickering flame, acres burned, a containment bar, how far and which way, and how many days it has burned. A new fire close by takes over once. From NIFC.",
+      "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/wildfires"
+    },
+    {
       "id": "word_bot",
       "name": "Word bot",
       "author": "Costa Mesa Tech Solutions",
