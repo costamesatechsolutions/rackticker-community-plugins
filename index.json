@@ -16,6 +16,13 @@
       "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/bar_trivia"
     },
     {
+      "id": "deep_space",
+      "name": "Deep space",
+      "author": "Costa Mesa Tech Solutions",
+      "description": "How far away our farthest spacecraft are, rolling like an odometer at their real speed: Voyager 1 and 2, New Horizons and Parker Solar Probe, with how long their radio signal takes to reach us, and Voyager 1's countdown to one light-day from Earth. From NASA JPL Horizons.",
+      "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/deep_space"
+    },
+    {
       "id": "departures",
       "name": "Departures",
       "author": "Costa Mesa Tech Solutions",
