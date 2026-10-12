@@ -51,23 +51,60 @@ class ScreenTests(unittest.TestCase):
 
 
 class OdometerTests(unittest.TestCase):
-    def pixels(self, value):
+    def pixels(self, value, rate=1.0):
         from PIL import Image
         frame = Image.new("RGB", (40, 12))
-        deep.odometer(frame, value, 0, 1, (236, 238, 236), 0, "MI")
+        deep.odometer(frame, value, 0, 1, (236, 238, 236), rate, "MI")
         return frame.crop((0, 0, 18, 12)).tobytes()  # the digits only, not the unit
 
-    def test_whole_unit_matches_plain_digits(self):
+    def test_a_wheel_at_rest_matches_plain_digits(self):
         from PIL import Image
         from rackticker import draw_text
         plain = Image.new("RGB", (40, 12))
         draw_text(plain, "216", 0, 1, (236, 238, 236))
         self.assertEqual(self.pixels(216.0), plain.crop((0, 0, 18, 12)).tobytes())
+        self.assertEqual(self.pixels(216.5), plain.crop((0, 0, 18, 12)).tobytes())  # resting mid-unit
 
-    def test_wheel_turns_steadily_through_the_unit(self):
-        # Nine looks in all: the wheel at rest, then each of its eight rows of travel.
-        frames = [self.pixels(216 + k / 40) for k in range(40)]
-        self.assertEqual(len(set(frames)), 9)
+    def test_a_slow_wheel_rolls_to_the_next_digit_without_jumping(self):
+        # At 1 a second the turn takes the last 0.35 of each unit; sampled finely, every
+        # row of travel is seen on the way from 216 to 217, and the end is 217 exactly.
+        from PIL import Image
+        from rackticker import draw_text
+        tops = [deep.wheel_position(216 + k / 200, 0, 1.0) for k in range(201)]
+        self.assertTrue(all(b >= a for a, b in zip(tops, tops[1:])))
+        self.assertEqual(len({round(top * 8) for top in tops}), 9)
+        plain = Image.new("RGB", (40, 12))
+        draw_text(plain, "217", 0, 1, (236, 238, 236))
+        self.assertEqual(self.pixels(217.0), plain.crop((0, 0, 18, 12)).tobytes())
+
+    def test_a_shrinking_distance_rolls_back(self):
+        self.assertEqual(deep.wheel_position(217.0, 0, -1.0), 7)
+        self.assertGreater(deep.wheel_position(216.99, 0, -1.0), 6.9)
+
+    def test_tens_turn_while_units_pass_nine(self):
+        # Voyager at 17 a second: the units flick (too fast to roll), the tens take the
+        # last 0.35 s of each ten to roll (from about 4 in the units) and rest otherwise.
+        self.assertEqual(deep.wheel_position(1203.0, 1, 17.0), 0)
+        self.assertTrue(0 < deep.wheel_position(1207.0, 1, 17.0) < 1)
+        self.assertGreater(deep.wheel_position(1209.99, 1, 17.0), .99)
+        self.assertEqual(deep.wheel_position(1210.0, 1, 17.0), 1)
+
+    def test_fast_units_wheel_shows_its_digit_dimmed(self):
+        from PIL import Image
+        frame = Image.new("RGB", (40, 12))
+        deep.odometer(frame, 1234.4, 0, 1, (236, 238, 236), 17.0, "KM")
+        units = frame.crop((24, 0, 30, 12))  # "1,23" then the units wheel
+        self.assertTrue(units.getbbox())
+        self.assertLess(max(units.getdata())[0], 236)
+
+    def test_the_distance_moves_every_frame_not_once_a_second(self):
+        rows = deep.parse(TABLE)
+        module = deep.DeepSpace()
+        start = rows[0][0] + 60
+        seen = [module._clock(context(start, {}, t / 30)) for t in range(30)]
+        self.assertEqual(len(set(seen)), 30)
+        self.assertTrue(all(b > a for a, b in zip(seen, seen[1:])))
+        self.assertGreater(module._clock(context(start + 1, {}, 1.0)), seen[-1])
 
 
 if __name__ == "__main__":

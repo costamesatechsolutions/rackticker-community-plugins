@@ -127,35 +127,57 @@ def light_time(km):
     return f"{minutes}M {int(seconds % 60):02d}S"
 
 
-@lru_cache(maxsize=10)
-def rolling(digit):
-    """A digit with the next one under it, as a mask, for the last wheel of the odometer to roll through."""
-    strip = Image.new("RGB", (5, 15))
-    draw_text(strip, digit, 0, 0, WHITE)
-    draw_text(strip, str((int(digit) + 1) % 10), 0, 8, WHITE)
+ROLL_SECONDS = .35   # how long a wheel takes to turn to its next digit
+FAST = 4.0           # digits a second past which a wheel can't be followed as a roll
+
+
+@lru_cache(maxsize=1)
+def wheel():
+    """0 to 9 and 0 again, one under the other 8 rows apart, as a mask: a wheel to crop a window from."""
+    strip = Image.new("RGB", (5, 88))
+    for digit in range(11):
+        draw_text(strip, str(digit % 10), 0, digit * 8, WHITE)
     return strip.convert("L").point(lambda v: 255 if v else 0)
 
 
-def odometer(frame, value, x, y, color, t, unit):
-    """Digits that roll: the last wheel turns through every unit, like a car's mileage."""
+def wheel_position(value, place, rate):
+    """Where wheel `place` (0 = units) stands, in digits from 0 to 10.
+
+    Like a car's odometer, a wheel rests on its digit and turns to the next one
+    while the wheels below it pass 9 to 0: here that turn takes ROLL_SECONDS (or
+    the whole cycle, for a wheel turning faster than that), eased at both ends.
+    Works the same when the distance shrinks, rolling the other way."""
+    units = value / 10 ** place
+    digit, progress = math.floor(units), units - math.floor(units)
+    share = min(1.0, abs(rate) / 10 ** place * ROLL_SECONDS)
+    if share <= 0:
+        return digit % 10
+    turn = min(1.0, max(0.0, (progress - (1 - share)) / share))
+    return digit % 10 + turn * turn * (3 - 2 * turn)
+
+
+def odometer(frame, value, x, y, color, rate, unit):
+    """The distance as an odometer moving at `rate` units a second.
+
+    Wheels that turn slower than FAST a second roll smoothly. Faster ones, which no
+    panel refresh can show rolling (Voyager's units wheel turns 17 times a second),
+    flick through their digits like a stopwatch's hundredths, a little dimmer."""
     text = f"{int(value):,}"
-    fraction = value - int(value)
+    places = sum(ch.isdigit() for ch in text)
+    dim = tuple(round(channel * .6) for channel in color)
     cx = x
-    digits_left = sum(ch.isdigit() for ch in text)
     for ch in text:
-        if ch.isdigit():
-            digits_left -= 1
-            if digits_left == 0:
-                # Always rolling by the fraction, not only in its second half: at this speed the
-                # wheel turns about ten times a second, and a half roll that snaps back strobes.
-                step = round(fraction * 8)
-                frame.paste(color, (cx, y, cx + 5, y + 7), rolling(ch).crop((0, step, 5, step + 7)))
-            else:
-                draw_text(frame, ch, cx, y, color)
-            cx += 6
-        else:
+        if not ch.isdigit():
             draw_text(frame, ch, cx, y, color)
             cx += text_width(ch) + 1
+            continue
+        places -= 1
+        if abs(rate) / 10 ** places > FAST:
+            draw_text(frame, str(math.floor(value / 10 ** places) % 10), cx, y, dim)
+        else:
+            top = round(wheel_position(value, places, rate) * 8)
+            frame.paste(color, (cx, y, cx + 5, y + 7), wheel().crop((0, top, 5, top + 7)))
+        cx += 6
     draw_tiny(frame, unit, cx + 2, y + 2, color)
 
 
@@ -164,6 +186,15 @@ class DeepSpace(Module):
 
     def __init__(self):
         self.story = Storyboard()
+        self._second, self._anchor = None, 0.0
+
+    def _clock(self, context):
+        """Wall time to the frame. context.now moves once a second, which left the
+        odometer standing still and then jumping a second's worth of distance."""
+        second, t = context.now.timestamp(), context.animation_time
+        if second != self._second or t < self._anchor:  # a new second, or a new scene
+            self._second, self._anchor = second, t
+        return second + min(.999, max(0.0, t - self._anchor))
 
     def refresh_interval(self, context):
         return 1 / context.config["display"]["fps"]
@@ -185,7 +216,7 @@ class DeepSpace(Module):
             draw_text(frame, "Asking JPL", 4, 12, GREY, mixed=True)
             return frame
         settings = context.config["plugins"][self.name]
-        ts = context.now.timestamp()
+        ts = self._clock(context)
         cards = []
         for ident, name, launched, measure in CRAFT:
             if ident in data:
@@ -228,16 +259,18 @@ class DeepSpace(Module):
         if tiny_width(name) + tiny_width(since) + 6 <= 128 - x:
             draw_tiny(frame, since, 128 - tiny_width(since), 1, GREY)
         imperial = settings["units"] == "imperial"
-        value, unit = (km * .621371, "MI") if imperial else (km, "KM")
-        odometer(frame, value, x, 10, WHITE, local, unit)
+        scale = .621371 if imperial else 1
+        row = min(rows, key=lambda r: abs(r[0] - ts))
+        rate = (row[2] if measure == "sun" else row[4]) * scale
+        odometer(frame, km * scale, x, 10, WHITE, rate, "MI" if imperial else "KM")
+        unit = "MI" if imperial else "KM"
         if measure == "sun":
             draw_tiny(frame, "FROM THE SUN", x, 20, GREY)
             draw_tiny(frame, f"{km / AU:.2f} OF EARTH'S DISTANCE", x, 26, AMBER)
         else:
             draw_tiny(frame, "FROM EARTH  RADIO TAKES", x, 20, GREY)
             draw_tiny(frame, light_time(km), x, 26, AMBER)
-            row = min(rows, key=lambda r: abs(r[0] - ts))
-            speed = abs(row[4]) * (.621371 if imperial else 1)
+            speed = abs(row[4]) * scale
             label = f"{'+' if row[4] >= 0 else '-'}{speed:.1f} {unit}/S"
             draw_tiny(frame, label, 128 - tiny_width(label), 26, GREY)
 
