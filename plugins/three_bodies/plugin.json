@@ -1,0 +1,9 @@
+{
+  "id": "three_bodies",
+  "name": "Three bodies",
+  "entry": "plugin.py",
+  "description": "The Sun, the Earth and the Moon side by side as they are right now: NOAA's newest picture of the Sun, the whole Earth from a weather satellite with today's clouds, and the Moon in its exact phase. Then the latest solar flare and the next full Moon.",
+  "author": "Costa Mesa Tech Solutions",
+  "version": "1.0.0",
+  "homepage": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/three_bodies"
+}
