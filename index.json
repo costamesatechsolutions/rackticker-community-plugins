@@ -30,6 +30,13 @@
       "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/bar_trivia"
     },
     {
+      "id": "blocks",
+      "name": "Blocks",
+      "author": "Costa Mesa Tech Solutions",
+      "description": "The Bitcoin network building its chain: the last blocks as cubes with their age and size, who mined the latest, how many transactions are waiting and what it costs to get in, and the countdown to the next halving. Public data from mempool.space; no prices, no trading.",
+      "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/blocks"
+    },
+    {
       "id": "casino",
       "name": "Casino",
       "author": "Costa Mesa Tech Solutions",

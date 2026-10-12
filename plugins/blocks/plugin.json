@@ -1,0 +1,9 @@
+{
+  "id": "blocks",
+  "name": "Blocks",
+  "entry": "plugin.py",
+  "description": "The Bitcoin network building its chain: the last blocks as cubes with their age and size, who mined the latest, how many transactions are waiting and what it costs to get in, and the countdown to the next halving. Public data from mempool.space; no prices, no trading.",
+  "author": "Costa Mesa Tech Solutions",
+  "version": "1.0.0",
+  "homepage": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/blocks"
+}
