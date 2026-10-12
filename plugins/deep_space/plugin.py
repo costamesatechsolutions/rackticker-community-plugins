@@ -186,15 +186,27 @@ class DeepSpace(Module):
 
     def __init__(self):
         self.story = Storyboard()
-        self._second, self._anchor = None, 0.0
+        self._offset = self._last_t = self._last = None
 
     def _clock(self, context):
-        """Wall time to the frame. context.now moves once a second, which left the
-        odometer standing still and then jumping a second's worth of distance."""
-        second, t = context.now.timestamp(), context.animation_time
-        if second != self._second or t < self._anchor:  # a new second, or a new scene
-            self._second, self._anchor = second, t
-        return second + min(.999, max(0.0, t - self._anchor))
+        """Wall time that moves smoothly every frame and never backwards.
+
+        context.now is only roughly the frame's moment (in-process it changes once a
+        second; in a sandbox it is that second plus how far ahead the frame is drawn,
+        and can step back a little between batches), and following it made the
+        distance jump back and forth. So the frame clock drives, and is steered
+        gently toward the wall clock: a few hundredths of a second, never a jump."""
+        wall, t = context.now.timestamp(), context.animation_time
+        if self._offset is None or t < self._last_t or abs(t + self._offset - wall) > 2:
+            self._offset, self._last = wall - t, None  # a new scene, or the clock was set
+        else:
+            self._offset += (wall - t - self._offset) * .002
+        self._last_t = t
+        moment = t + self._offset
+        if self._last is not None and moment < self._last:
+            moment = self._last
+        self._last = moment
+        return moment
 
     def refresh_interval(self, context):
         return 1 / context.config["display"]["fps"]

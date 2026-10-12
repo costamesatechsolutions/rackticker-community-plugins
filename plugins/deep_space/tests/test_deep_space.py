@@ -98,13 +98,35 @@ class OdometerTests(unittest.TestCase):
         self.assertLess(max(units.getdata())[0], 236)
 
     def test_the_distance_moves_every_frame_not_once_a_second(self):
-        rows = deep.parse(TABLE)
         module = deep.DeepSpace()
-        start = rows[0][0] + 60
-        seen = [module._clock(context(start, {}, t / 30)) for t in range(30)]
-        self.assertEqual(len(set(seen)), 30)
-        self.assertTrue(all(b > a for a, b in zip(seen, seen[1:])))
-        self.assertGreater(module._clock(context(start + 1, {}, 1.0)), seen[-1])
+        start = deep.parse(TABLE)[0][0] + 60
+        # In-process: context.now changes only on the whole second.
+        seen = [module._clock(context(start + t // 30, {}, t / 30)) for t in range(300)]
+        steps = [b - a for a, b in zip(seen, seen[1:])]
+        self.assertTrue(all(step > 0 for step in steps))
+        self.assertLess(max(steps) / min(steps), 1.2)  # an even pace, no catching up each second
+        self.assertLess(abs(seen[-1] - (start + 10)), 1)
+
+    def test_a_sandbox_now_that_wobbles_never_moves_it_backwards(self):
+        # In a sandbox, now is the second the batch was asked in plus how far ahead the
+        # frame is: it repeats and steps back a little at each batch, as on the Pi.
+        import random
+        module = deep.DeepSpace()
+        start, rng, seen = 1_800_000_000, random.Random(1), []
+        for frame in range(600):
+            t = frame / 30
+            asked = t - (frame % 4) / 30
+            wall = start + int(asked) + (t - asked) + rng.uniform(-.05, .05)
+            seen.append(module._clock(SimpleNamespace(now=datetime.fromtimestamp(wall, timezone.utc), animation_time=t)))
+        self.assertTrue(all(b >= a for a, b in zip(seen, seen[1:])))
+        steps = [b - a for a, b in zip(seen, seen[1:])]
+        self.assertGreater(min(steps[30:]), 0)
+        self.assertLess(abs(seen[-1] - (start + 20)), 1.5)
+
+    def test_a_new_visit_starts_from_the_wall_clock(self):
+        module = deep.DeepSpace()
+        module._clock(context(1_800_000_000, {}, 50.0))
+        self.assertAlmostEqual(module._clock(context(1_800_000_900, {}, 0.0)), 1_800_000_900, delta=.01)
 
 
 if __name__ == "__main__":
