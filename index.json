@@ -37,6 +37,13 @@
       "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/casino"
     },
     {
+      "id": "chess",
+      "name": "Chess",
+      "author": "Costa Mesa Tech Solutions",
+      "description": "A live game between strong players from Lichess TV, move by move: the board with the last move lit, both players with titles, ratings and running clocks, and the move just played in big letters. Free and open, no account.",
+      "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/chess"
+    },
+    {
       "id": "deep_space",
       "name": "Deep space",
       "author": "Costa Mesa Tech Solutions",

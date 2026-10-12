@@ -1,0 +1,9 @@
+{
+  "id": "chess",
+  "name": "Chess",
+  "entry": "plugin.py",
+  "description": "A live game between strong players from Lichess TV, move by move: the board with the last move lit, both players with titles, ratings and running clocks, and the move just played in big letters. Free and open, no account.",
+  "author": "Costa Mesa Tech Solutions",
+  "version": "1.0.0",
+  "homepage": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/chess"
+}
