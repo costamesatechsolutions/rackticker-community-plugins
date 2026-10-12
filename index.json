@@ -107,6 +107,13 @@
       "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/onboard"
     },
     {
+      "id": "pocket_baseball",
+      "name": "Pocket baseball",
+      "author": "Costa Mesa Tech Solutions",
+      "description": "A made-up Orange County league that is always playing, pitch by pitch, on the clock: the diamond with runners and outs, the count, the line score and each play; then the final and the next game. Big-league outcome rates, so the scores look real.",
+      "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/pocket_baseball"
+    },
+    {
       "id": "quakes",
       "name": "Quakes",
       "author": "Costa Mesa Tech Solutions",

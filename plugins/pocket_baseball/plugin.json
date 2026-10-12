@@ -1,0 +1,9 @@
+{
+  "id": "pocket_baseball",
+  "name": "Pocket baseball",
+  "entry": "plugin.py",
+  "description": "A made-up Orange County league that is always playing, pitch by pitch, on the clock: the diamond with runners and outs, the count, the line score and each play; then the final and the next game. Big-league outcome rates, so the scores look real.",
+  "author": "Costa Mesa Tech Solutions",
+  "version": "1.0.0",
+  "homepage": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/pocket_baseball"
+}
