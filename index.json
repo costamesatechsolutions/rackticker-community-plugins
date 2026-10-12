@@ -79,6 +79,13 @@
       "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/f1"
     },
     {
+      "id": "harbor",
+      "name": "Harbor",
+      "author": "Costa Mesa Tech Solutions",
+      "description": "The ships around you, live from their own radio beacons: a radar picture of the water near home with every ship moving, anchored ones blinking; how many are at anchor, under way and alongside; and the biggest, with what they are, how long and where they are bound. Needs a free aisstream.io key.",
+      "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/harbor"
+    },
+    {
       "id": "iss",
       "name": "Space station",
       "author": "Costa Mesa Tech Solutions",

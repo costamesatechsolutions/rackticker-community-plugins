@@ -1,0 +1,9 @@
+{
+  "id": "harbor",
+  "name": "Harbor",
+  "entry": "plugin.py",
+  "description": "The ships around you, live from their own radio beacons: a radar picture of the water near home with every ship moving, anchored ones blinking; how many are at anchor, under way and alongside; and the biggest, with what they are, how long and where they are bound. Needs a free aisstream.io key.",
+  "author": "Costa Mesa Tech Solutions",
+  "version": "1.0.0",
+  "homepage": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/harbor"
+}
