@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime, timezone
 from types import SimpleNamespace
 import unittest
@@ -37,6 +38,45 @@ class WorkTests(unittest.TestCase):
         self.assertTrue(found)
         self.assertEqual(found[0][0], "station")
         self.assertEqual(found[0][6], "ISS")
+
+
+class FeedTests(unittest.TestCase):
+    def feed(self):
+        return sats.Feed(SimpleNamespace(settings={"latitude": HOME[0], "longitude": HOME[1]}))
+
+    def test_dead_catalogue_says_why_and_waits_before_retrying(self):
+        feed = self.feed()
+        calls = []
+
+        async def failing():
+            calls.append(1)
+            raise TimeoutError()
+
+        feed._download = failing
+
+        async def run():
+            await feed.fetch()          # starts the download; nothing to show yet
+            await asyncio.sleep(0.05)
+            for _ in range(3):
+                with self.assertRaisesRegex(RuntimeError, "CelesTrak not answering"):
+                    await feed.fetch()
+                await asyncio.sleep(0.05)
+
+        asyncio.run(run())
+        self.assertEqual(len(calls), 1)
+
+    def test_slow_work_is_not_cancelled_by_the_fetch_deadline(self):
+        feed = self.feed()
+        feed.sats = [ISS]
+
+        async def run():
+            first = await feed.fetch()
+            self.assertIsNone(first.data)
+            await asyncio.sleep(0.2)
+            second = await feed.fetch()
+            return second
+
+        self.assertIsNotNone(asyncio.run(run()).data)
 
 
 class ScreenTests(unittest.TestCase):

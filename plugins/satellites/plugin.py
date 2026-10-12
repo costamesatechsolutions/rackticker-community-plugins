@@ -24,7 +24,7 @@ from rackticker import (Module, Plugin, Provider, Snapshot, Storyboard, draw_tex
 
 CATALOGUE = "https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=tle"
 # CelesTrak asks that the same data is not downloaded more than once every two hours.
-CATALOGUE_EVERY, NEARBY_EVERY, POSITIONS_EVERY = 6 * 3600, 600, 30
+CATALOGUE_EVERY, CATALOGUE_RETRY, NEARBY_EVERY, POSITIONS_EVERY = 6 * 3600, 300, 600, 30
 NEARBY_MARGIN = -12          # degrees below the horizon still worth following for the next ten minutes
 
 RE, MU, J2, TAU = 6378.137, 398600.4418, 1.08262668e-3, 2 * math.pi
@@ -208,8 +208,9 @@ class Feed(Provider):
         self.context = context
         self.session = None
         self.sats, self.sats_at, self.download, self.failed = [], -1e9, None, False
+        self.retry_at, self.problem = 0.0, None
         self.near, self.near_at, self.near_key = [], -1e9, None
-        self.snapshot = None
+        self.snapshot, self.work = None, None
 
     async def _download(self):
         """The catalogue from the copy kept on disk if it is fresh, otherwise from CelesTrak.
@@ -237,39 +238,61 @@ class Feed(Provider):
             await asyncio.to_thread(cache.write_text, text)
         return sats
 
+    async def _work(self, home, clock, now):
+        """Which satellites are near, then where they are. Runs in its own task, so a slow
+        Pi is not cut off by the sandbox's fetch deadline (which would restart it forever)."""
+        if self.near_key != home or clock - self.near_at >= NEARBY_EVERY:
+            self.near = await offload(nearby, self.sats, *home, now)
+            self.near_key, self.near_at = home, clock
+        found = await offload(positions, self.near, *home, now, now + POSITIONS_EVERY)
+        observer = site(*home)
+        self.snapshot = {"start": now, "span": POSITIONS_EVERY, "sats": found, "home": home,
+                         "dark": sun_elevation(observer, now) < -6, "total": len(self.sats)}
+
     async def fetch(self):
         settings = self.context.settings
         home = (settings["latitude"], settings["longitude"])
         if home == (0, 0):
-            raise ValueError("Set your home location in Settings")
+            raise ValueError("Set home in Settings")
         clock = time.monotonic()
         # The catalogue is big (2.7 MB), so it downloads on its own beside the regular rounds.
-        if self.download is None and (not self.sats or clock - self.sats_at >= CATALOGUE_EVERY):
+        due = not self.sats or clock - self.sats_at >= CATALOGUE_EVERY
+        if self.download is None and due and clock >= self.retry_at:
             self.download = asyncio.ensure_future(self._download())
         if self.download is not None and self.download.done():
+            task, self.download = self.download, None
             try:
-                sats = self.download.result()
-                if sats:
-                    self.sats, self.sats_at, self.near_key = sats, clock, None
+                sats = task.result()
             except Exception:
-                self.sats_at = clock - CATALOGUE_EVERY + (900 if self.sats else 120)
-            self.download = None
+                sats = None
+                self.problem = "CelesTrak not answering"
+            else:
+                self.problem = None if sats else "CelesTrak list empty"
+            if sats:
+                self.sats, self.sats_at, self.near_key = sats, clock, None
+            elif self.problem:
+                # Retry in five minutes, not on every poll: CelesTrak blocks a flood of requests.
+                self.retry_at = clock + CATALOGUE_RETRY
         if not self.sats:
+            if self.problem:
+                raise RuntimeError(self.problem)
             return Snapshot(None)
+        if self.work is not None and self.work.done():
+            task, self.work = self.work, None
+            task.result()
         now = time.time()
-        if self.near_key != home or clock - self.near_at >= NEARBY_EVERY:
-            self.near = await offload(nearby, self.sats, *home, now)
-            self.near_key, self.near_at = home, clock
-        if self.snapshot is None or now - self.snapshot["start"] >= POSITIONS_EVERY:
-            found = await offload(positions, self.near, *home, now, now + POSITIONS_EVERY)
-            observer = site(*home)
-            self.snapshot = {"start": now, "span": POSITIONS_EVERY, "sats": found, "home": home,
-                             "dark": sun_elevation(observer, now) < -6, "total": len(self.sats)}
+        if self.work is None and (self.snapshot is None or self.near_key != home
+                                  or clock - self.near_at >= NEARBY_EVERY
+                                  or now - self.snapshot["start"] >= POSITIONS_EVERY):
+            self.work = asyncio.ensure_future(self._work(home, clock, now))
+        if self.snapshot is None:
+            return Snapshot(None)
         return Snapshot(self.snapshot)
 
     async def close(self):
-        if self.download is not None:
-            self.download.cancel()
+        for task in (self.download, self.work):
+            if task is not None:
+                task.cancel()
 
 
 # --- the screen ------------------------------------------------------------------------------
@@ -326,7 +349,13 @@ class Satellites(Module):
         frame = Image.new("RGB", (128, 32))
         data = self._data(context)
         if data is None:
-            draw_text(frame, "Loading orbits", 2, 12, GREY, mixed=True)
+            snap = context.snapshots.get(self.name)
+            if snap is not None and snap.error:
+                # Say why it is waiting, so a dead feed is not mistaken for a slow start.
+                draw_text(frame, "No orbits yet", 2, 8, AMBER, mixed=True)
+                draw_tiny(frame, snap.error.upper(), 2, 20, GREY)
+            else:
+                draw_text(frame, "Loading orbits", 2, 12, GREY, mixed=True)
             return frame
         up = self._now(data, context.now.timestamp())
 
