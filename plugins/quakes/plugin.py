@@ -26,7 +26,7 @@ ASK_EVERY = 60
 WHITE, GREY, DIM = (236, 238, 236), (140, 146, 150), (40, 44, 48)
 TRACE = (90, 230, 120)
 DRUM_SECONDS, ROW_SECONDS = 7.0, 7.0
-NAME_REST, NAME_SPEED = 1.6, 18   # a name too long for its row sits still, then glides once to its end
+NAME_REST, NAME_SPEED = 1.6, 18   # a name too long for its row sits still, glides to its end, rests, glides back
 
 
 @lru_cache(maxsize=32)
@@ -42,6 +42,45 @@ def _name_stops(name, room):
     full = text_width(name, 1, True)
     stops = [text_width(name[:i], 1, True) + 1 for i in range(1, len(name))]
     return resting.rstrip(), min([x for x in stops if full - x <= room] or [max(0, full - room)])
+
+
+def _glide(local, distance):
+    """How far a long name is shifted `local` seconds in: rest, glide to the end, rest, glide back, repeat.
+
+    Gliding only one way left the name parked on its tail for the rest of the screen,
+    so most of the time you saw "...ville" and never where the quake was."""
+    glide = distance / NAME_SPEED
+    cycle = 2 * (NAME_REST + glide)
+    if distance <= 0:
+        return 0
+    phase = local % cycle
+    if phase < NAME_REST:
+        return 0
+    if phase < NAME_REST + glide:
+        return round((phase - NAME_REST) * NAME_SPEED)
+    if phase < 2 * NAME_REST + glide:
+        return distance
+    return round(distance - (phase - 2 * NAME_REST - glide) * NAME_SPEED)
+
+
+def _rows(quakes, now):
+    """(rows, name_x, room for names): the same room for every row, not each row's own."""
+    rows = quakes[:3]
+    rights = [f"{quake['miles']}MI {ago(now - quake['time'])}" for quake in rows]
+    name_x = text_width(f"{rows[0]['magnitude']:.1f}") + 4 if rows else 0
+    room = 128 - name_x - 4 - max((tiny_width(right) for right in rights), default=0)
+    return rows, rights, name_x, room
+
+
+def _latest_seconds(quakes, now):
+    """Long enough for the longest name to rest, glide to its end and back at least once."""
+    rows, _, _, room = _rows(quakes, now)
+    cycle = ROW_SECONDS
+    for quake in rows:
+        if room > 0 and text_width(quake["place"], 1, True) > room:
+            distance = _name_stops(quake["place"], room)[1]
+            cycle = max(cycle, 2 * (NAME_REST + distance / NAME_SPEED) + .4)
+    return min(cycle, 16)
 
 
 def magnitude_color(value):
@@ -124,7 +163,9 @@ class Seismograph(Module):
         return bool(snap and snap.data)
 
     def hold(self, context):
-        return context.animation_time < DRUM_SECONDS + ROW_SECONDS
+        snap = context.snapshots.get(self.name)
+        quakes = snap.data if snap and snap.data else []
+        return context.animation_time < DRUM_SECONDS + _latest_seconds(quakes, context.now.timestamp())
 
     def render(self, context):
         frame = new_frame()
@@ -160,28 +201,32 @@ class Seismograph(Module):
         drawn = min(128, round(t / 2.2 * 128))
         rng = random.Random(int(now // 3600))
         previous = None
+        # Biggest first, so when quakes are close together the larger one keeps its number
+        # and a smaller neighbour's never prints over it.
+        labelled, shown = [], {}
+        for x, size in sorted(spikes.items(), key=lambda item: -item[1]):
+            if size < 2.5:
+                continue
+            width = tiny_width(f"{size:.1f}")
+            left = min(128 - width, max(0, x - width // 2))
+            if all(left >= r + 2 or left + width + 2 <= l for l, r in labelled):
+                labelled.append((left, left + width))
+                shown[x] = left
         for x in range(drawn):
             wiggle = rng.uniform(-.8, .8) + math.sin(x * 1.7 + t * 9) * .4
             size = spikes.get(x)
-            amplitude = 0 if size is None else min(11, size ** 1.6)
-            y = round(18 + wiggle + (amplitude if x % 2 else -amplitude))
+            amplitude = 0 if size is None else min(7, 1.5 + size * 1.3)   # stays clear of the numbers below
+            y = round(17 + wiggle + (amplitude if x % 2 else -amplitude))
             color = TRACE if size is None else magnitude_color(size)
             if previous is not None:
                 draw.line((x - 1, previous, x, y), fill=color)
             previous = y
-            if size is not None and size >= 2.5:
-                text = f"{size:.1f}"
-                draw_tiny(frame, text, min(128 - tiny_width(text), max(0, x - tiny_width(text) // 2)), 25, color)
+            if x in shown:
+                draw_tiny(frame, f"{size:.1f}", shown[x], 26, color)
 
     @staticmethod
     def _latest(frame, quakes, now, local):
-        rows = quakes[:3]
-        rights = [f"{quake['miles']}MI {ago(now - quake['time'])}" for quake in rows]
-        name_x = text_width(f"{rows[0]['magnitude']:.1f}") + 4 if rows else 0
-        # The same room for every row, not each row's own (a nearer or older quake's
-        # shorter "MI ago" left more space) - otherwise the same place name fit on
-        # one row and had to scroll on another, which read as broken.
-        room = 128 - name_x - 4 - max((tiny_width(right) for right in rights), default=0)
+        rows, rights, name_x, room = _rows(quakes, now)
         for index, quake in enumerate(rows):
             if local < index * .2:
                 continue
@@ -197,7 +242,7 @@ class Seismograph(Module):
                 # One shared clock (not staggered by row) so two rows naming the
                 # same place move in lockstep instead of drifting apart.
                 resting, distance = _name_stops(name, room)
-                shift = min(distance, max(0, round((local % ROW_SECONDS - NAME_REST) * NAME_SPEED)))
+                shift = _glide(local, distance)
                 cell = Image.new("RGB", (room, 9))   # 7 rows plus mixed case's 2-row descenders
                 draw_text(cell, resting if shift == 0 else name, -shift, 0, WHITE, mixed=True)
                 frame.paste(cell, (name_x, y))
