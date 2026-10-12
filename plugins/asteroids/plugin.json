@@ -1,0 +1,9 @@
+{
+  "id": "asteroids",
+  "name": "Asteroids",
+  "entry": "plugin.py",
+  "description": "Space rocks passing close to Earth this month, from NASA JPL: each one sweeping past the Earth and the Moon's orbit at its real distance, when it is closest, how fast and how big ('as big as a bus'). One passing inside the Moon's orbit takes over as it comes by.",
+  "author": "Costa Mesa Tech Solutions",
+  "version": "1.0.0",
+  "homepage": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/asteroids"
+}

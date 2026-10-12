@@ -9,6 +9,13 @@
       "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/arcade"
     },
     {
+      "id": "asteroids",
+      "name": "Asteroids",
+      "author": "Costa Mesa Tech Solutions",
+      "description": "Space rocks passing close to Earth this month, from NASA JPL: each one sweeping past the Earth and the Moon's orbit at its real distance, when it is closest, how fast and how big ('as big as a bus'). One passing inside the Moon's orbit takes over as it comes by.",
+      "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/asteroids"
+    },
+    {
       "id": "bar_trivia",
       "name": "Bar trivia",
       "author": "Costa Mesa Tech Solutions",
