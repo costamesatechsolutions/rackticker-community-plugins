@@ -1,0 +1,9 @@
+{
+  "id": "wiki_pulse",
+  "name": "Wiki pulse",
+  "entry": "plugin.py",
+  "description": "The world editing Wikipedia, live: a heartbeat where every edit is a blip, edits a minute and the article just touched; then the articles edited most in the last hour, where the news shows up first, and the brand-new articles.",
+  "author": "Costa Mesa Tech Solutions",
+  "version": "1.0.0",
+  "homepage": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/wiki_pulse"
+}
