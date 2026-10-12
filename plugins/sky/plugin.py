@@ -14,6 +14,7 @@ from __future__ import annotations
 from datetime import datetime
 from functools import lru_cache
 import math
+import time
 
 from PIL import Image, ImageDraw
 
@@ -151,24 +152,29 @@ def row(alt):
 
 @lru_cache(maxsize=48)
 def sky_backdrop(sun_alt_step, sun_x, south_up):
-    """The sky's colour for the Sun's height (in 1° steps), lighter around the Sun and the horizon."""
-    image = Image.new("RGB", (128, 32))
-    pixels = image.load()
+    """The sky's colour for the Sun's height (in 1° steps), lighter around the Sun and the horizon.
+
+    Worked out a quarter as wide and stretched: it is a soft gradient, and a full-size
+    one is 18 ms on a Pi, which the time-lapse would need every other frame."""
     alt = sun_alt_step
+    if alt <= -12:
+        return Image.new("RGB", (128, 32))
+    small = Image.new("RGB", (32, HORIZON_ROW + 1))
+    pixels = small.load()
     for y in range(HORIZON_ROW + 1):
         near = y / HORIZON_ROW                     # 1 at the horizon
-        for x in range(128):
-            dx = min(abs(x - sun_x), 128 - abs(x - sun_x)) / 64   # 0 under the Sun, 1 opposite
+        for x in range(32):
+            dx = min(abs(x * 4 + 2 - sun_x), 128 - abs(x * 4 + 2 - sun_x)) / 64   # 0 under the Sun
             if alt > 6:
                 color = (round(10 + 30 * near), round(40 + 50 * near), round(120 + 50 * near))
-            elif alt > -12:
+            else:
                 glow = max(0.0, 1 - dx * 1.6) * near ** 2 * (1 - (6 - alt) / 18)
                 depth = (alt + 12) / 18
                 color = (round(255 * glow), round(110 * glow + 30 * depth * near),
                          round(60 * depth + 50 * depth * near + 10 * glow))
-            else:
-                color = (0, 0, 0)
             pixels[x, y] = color
+    image = Image.new("RGB", (128, 32))
+    image.paste(small.resize((128, HORIZON_ROW + 1), Image.BILINEAR), (0, 0))
     return image
 
 
@@ -271,7 +277,10 @@ class Home(Provider):
 
     async def fetch(self):
         settings = self.context.settings
-        return Snapshot((settings["latitude"], settings["longitude"]))
+        home = (settings["latitude"], settings["longitude"])
+        # Rise and set times here, once every five minutes, rather than in a frame.
+        table = almanac(*home, int(time.time() // 300)) if home != (0, 0) else []
+        return Snapshot({"home": home, "almanac": table})
 
 
 class Sky(Module):
@@ -288,7 +297,7 @@ class Sky(Module):
 
     def _home(self, context):
         snap = context.snapshots.get(self.name)
-        return tuple(snap.data) if snap and snap.data else (0, 0)
+        return tuple(snap.data["home"]) if snap and snap.data else (0, 0)
 
     def available(self, context):
         return self._home(context) != (0, 0)
@@ -313,7 +322,7 @@ class Sky(Module):
         elif page == "lapse":
             self._lapse(frame, lat, lon, ts, local, context)
         else:
-            self._planets(frame, lat, lon, ts, local, context)
+            self._planets(frame, context.snapshots[self.name].data["almanac"], local, context)
         return frame
 
     def _lapse(self, frame, lat, lon, ts, local, context):
@@ -325,9 +334,13 @@ class Sky(Module):
         width = tiny_width("NEXT 12 HOURS")
         draw_tiny(frame, "NEXT 12 HOURS", 127 - width, 1, GREY)
 
-    def _planets(self, frame, lat, lon, ts, local, context):
+    def _planets(self, frame, table, local, context):
         rows = []
-        for name, (up, rise, setting) in zip(("Moon", *PLANETS), almanac(lat, lon, int(ts // 300))):
+        ts = context.now.timestamp()
+        for name, (up, rise, setting) in zip(("Moon", *PLANETS), table):
+            rise = rise if rise and rise > ts else None
+            setting = setting if setting and setting > ts else None
+            up = up if setting or not rise else False
             if up:
                 text = f"UP, SETS {clock(setting, context.now)}" if setting else "UP ALL DAY"
             elif rise:

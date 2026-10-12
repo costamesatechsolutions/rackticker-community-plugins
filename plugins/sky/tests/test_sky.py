@@ -11,7 +11,7 @@ HOME = (33.64, -117.92)
 def context(ts, t=0.0):
     return SimpleNamespace(now=datetime.fromtimestamp(ts).astimezone(), animation_time=t, scene=1,
                            config={"display": {"fps": 30}, "plugins": {"sky": {"latitude": 0.0, "longitude": 0.0}}},
-                           snapshots={"sky": SimpleNamespace(data=HOME)})
+                           snapshots={"sky": SimpleNamespace(data={"home": HOME, "almanac": sky.almanac(*HOME, int(ts // 300))})})
 
 
 def separation(a, b):
