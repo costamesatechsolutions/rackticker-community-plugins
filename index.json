@@ -100,6 +100,13 @@
       "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/retro_savers"
     },
     {
+      "id": "satellites",
+      "name": "Satellites overhead",
+      "author": "Costa Mesa Tech Solutions",
+      "description": "Every working satellite above your horizon right now, across the whole 360° sky and moving at its real pace: often a thousand at once, mostly Starlink. After dark the ones still lit by the Sun shine brighter; the space stations are named. Then the count by owner.",
+      "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/satellites"
+    },
+    {
       "id": "sky",
       "name": "Sky",
       "author": "Costa Mesa Tech Solutions",

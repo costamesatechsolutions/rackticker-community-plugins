@@ -1,0 +1,9 @@
+{
+  "id": "satellites",
+  "name": "Satellites overhead",
+  "entry": "plugin.py",
+  "description": "Every working satellite above your horizon right now, across the whole 360° sky and moving at its real pace: often a thousand at once, mostly Starlink. After dark the ones still lit by the Sun shine brighter; the space stations are named. Then the count by owner.",
+  "author": "Costa Mesa Tech Solutions",
+  "version": "1.0.0",
+  "homepage": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/satellites"
+}
