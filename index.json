@@ -23,6 +23,13 @@
       "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/bar_trivia"
     },
     {
+      "id": "casino",
+      "name": "Casino",
+      "author": "Costa Mesa Tech Solutions",
+      "description": "Games of chance that play themselves under the lights: Plinko chips rattling down through the pegs into the prize slots, and a slot machine spinning, stopping reel by reel, near misses and all, with a light show for a jackpot. No money, just the show.",
+      "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/casino"
+    },
+    {
       "id": "deep_space",
       "name": "Deep space",
       "author": "Costa Mesa Tech Solutions",
