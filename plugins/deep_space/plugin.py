@@ -127,17 +127,17 @@ def light_time(km):
     return f"{minutes}M {int(seconds % 60):02d}S"
 
 
-@lru_cache(maxsize=20)
-def rolling(digit, color):
-    """A digit with the next one under it, for the last wheel of the odometer to roll through."""
+@lru_cache(maxsize=10)
+def rolling(digit):
+    """A digit with the next one under it, as a mask, for the last wheel of the odometer to roll through."""
     strip = Image.new("RGB", (5, 15))
-    draw_text(strip, digit, 0, 0, color)
-    draw_text(strip, str((int(digit) + 1) % 10), 0, 8, color)
-    return strip
+    draw_text(strip, digit, 0, 0, WHITE)
+    draw_text(strip, str((int(digit) + 1) % 10), 0, 8, WHITE)
+    return strip.convert("L").point(lambda v: 255 if v else 0)
 
 
 def odometer(frame, value, x, y, color, t, unit):
-    """Digits that roll: the last few spin as the distance grows, like a car's mileage."""
+    """Digits that roll: the last wheel turns through every unit, like a car's mileage."""
     text = f"{int(value):,}"
     fraction = value - int(value)
     cx = x
@@ -145,9 +145,11 @@ def odometer(frame, value, x, y, color, t, unit):
     for ch in text:
         if ch.isdigit():
             digits_left -= 1
-            if digits_left == 0 and fraction > .5:
-                frame.paste(rolling(ch, color).crop((0, round((fraction - .5) * 2 * 8), 5,
-                                                     round((fraction - .5) * 2 * 8) + 7)), (cx, y))
+            if digits_left == 0:
+                # Always rolling by the fraction, not only in its second half: at this speed the
+                # wheel turns about ten times a second, and a half roll that snaps back strobes.
+                step = round(fraction * 8)
+                frame.paste(color, (cx, y, cx + 5, y + 7), rolling(ch).crop((0, step, 5, step + 7)))
             else:
                 draw_text(frame, ch, cx, y, color)
             cx += 6

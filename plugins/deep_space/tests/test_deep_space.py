@@ -50,5 +50,25 @@ class ScreenTests(unittest.TestCase):
         self.assertFalse(module.available(context(0, {})))
 
 
+class OdometerTests(unittest.TestCase):
+    def pixels(self, value):
+        from PIL import Image
+        frame = Image.new("RGB", (40, 12))
+        deep.odometer(frame, value, 0, 1, (236, 238, 236), 0, "MI")
+        return frame.crop((0, 0, 18, 12)).tobytes()  # the digits only, not the unit
+
+    def test_whole_unit_matches_plain_digits(self):
+        from PIL import Image
+        from rackticker import draw_text
+        plain = Image.new("RGB", (40, 12))
+        draw_text(plain, "216", 0, 1, (236, 238, 236))
+        self.assertEqual(self.pixels(216.0), plain.crop((0, 0, 18, 12)).tobytes())
+
+    def test_wheel_turns_steadily_through_the_unit(self):
+        # Nine looks in all: the wheel at rest, then each of its eight rows of travel.
+        frames = [self.pixels(216 + k / 40) for k in range(40)]
+        self.assertEqual(len(set(frames)), 9)
+
+
 if __name__ == "__main__":
     unittest.main()
