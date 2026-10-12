@@ -1,0 +1,9 @@
+{
+  "id": "algorithms",
+  "name": "Algorithms",
+  "entry": "plugin.py",
+  "description": "Computer science you can watch: two sorting algorithms race to put the same 64 shuffled bars in order, then a maze carves itself across the panel, a flood finds the way through and a runner takes the shortest path.",
+  "author": "Costa Mesa Tech Solutions",
+  "version": "1.0.0",
+  "homepage": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/algorithms"
+}

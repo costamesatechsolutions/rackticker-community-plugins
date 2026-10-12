@@ -2,6 +2,13 @@
   "about": "Community plugins for RackTicker: one folder each, installable straight from its URL. Add yours with a pull request — one entry pointing at a public GitHub folder that contains plugin.json.",
   "plugins": [
     {
+      "id": "algorithms",
+      "name": "Algorithms",
+      "author": "Costa Mesa Tech Solutions",
+      "description": "Computer science you can watch: two sorting algorithms race to put the same 64 shuffled bars in order, then a maze carves itself across the panel, a flood finds the way through and a runner takes the shortest path.",
+      "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/algorithms"
+    },
+    {
       "id": "arcade",
       "name": "Arcade",
       "author": "Costa Mesa Tech Solutions",
