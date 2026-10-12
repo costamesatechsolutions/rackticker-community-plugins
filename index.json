@@ -86,6 +86,13 @@
       "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/retro_savers"
     },
     {
+      "id": "sky",
+      "name": "Sky",
+      "author": "Costa Mesa Tech Solutions",
+      "description": "Your whole horizon, 360 degrees across the panel: the Sun, the Moon, the five bright planets and the brightest stars where they really are, over a sky coloured by the time of day. Then the next twelve hours in eleven seconds, and when each planet rises and sets.",
+      "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/sky"
+    },
+    {
       "id": "space_weather",
       "name": "Space weather",
       "author": "Costa Mesa Tech Solutions",
