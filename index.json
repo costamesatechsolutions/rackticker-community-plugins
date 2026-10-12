@@ -86,6 +86,13 @@
       "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/retro_savers"
     },
     {
+      "id": "space_weather",
+      "name": "Space weather",
+      "author": "Costa Mesa Tech Solutions",
+      "description": "What the Sun is doing to the Earth, from NOAA: the geomagnetic storm level with yesterday and the forecast as bars, the solar wind streaming past at its real speed, six hours of solar X-rays on the flare scale, and whether the northern lights could reach you.",
+      "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/space_weather"
+    },
+    {
       "id": "surf",
       "name": "Surf",
       "author": "Costa Mesa Tech Solutions",
