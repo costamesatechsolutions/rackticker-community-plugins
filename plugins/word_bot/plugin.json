@@ -1,0 +1,9 @@
+{
+  "id": "word_bot",
+  "name": "Word bot",
+  "entry": "plugin.py",
+  "description": "A robot plays the five-letter word game on its own: each guess typed out, the tiles flipping green, gold and grey, how many words could still be the answer, the share grid filling up, and its running average. Usually done in three or four.",
+  "author": "Costa Mesa Tech Solutions",
+  "version": "1.0.0",
+  "homepage": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/word_bot"
+}

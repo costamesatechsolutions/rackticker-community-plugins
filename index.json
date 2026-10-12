@@ -196,6 +196,13 @@
       "author": "Costa Mesa Tech Solutions",
       "description": "A living pixel aquarium: clownfish, angelfish, neon tetras, swaying plants and a wandering snail. Optionally mirrors real tank readings and lighting.",
       "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/virtual_aquarium"
+    },
+    {
+      "id": "word_bot",
+      "name": "Word bot",
+      "author": "Costa Mesa Tech Solutions",
+      "description": "A robot plays the five-letter word game on its own: each guess typed out, the tiles flipping green, gold and grey, how many words could still be the answer, the share grid filling up, and its running average. Usually done in three or four.",
+      "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/word_bot"
     }
   ]
 }
