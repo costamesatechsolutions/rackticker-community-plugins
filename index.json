@@ -30,6 +30,13 @@
       "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/f1"
     },
     {
+      "id": "iss",
+      "name": "Space station",
+      "author": "Costa Mesa Tech Solutions",
+      "description": "The International Space Station live: a lit world map with its track, what it is flying over and how fast, the crew's next sunset, who is aboard, and a take-over that tells you where to look when it crosses your sky.",
+      "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/iss"
+    },
+    {
       "id": "markets",
       "name": "Prediction markets",
       "author": "Costa Mesa Tech Solutions",

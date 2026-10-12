@@ -1,0 +1,9 @@
+{
+  "id": "iss",
+  "name": "Space station",
+  "entry": "plugin.py",
+  "description": "The International Space Station live: a lit world map with its track, what it is flying over and how fast, the crew's next sunset, who is aboard, and a take-over that tells you where to look when it crosses your sky.",
+  "author": "Costa Mesa Tech Solutions",
+  "version": "1.0.0",
+  "homepage": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/iss"
+}
