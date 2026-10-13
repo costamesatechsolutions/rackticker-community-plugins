@@ -68,8 +68,13 @@ pointing at it. The folder needs `plugin.json`, your entry file, a `README.md`, 
 `LICENSE`, an `AGENTS.md` and `preview.png` / `preview.gif` — `tests/test_catalog.py`
 checks exactly that, and that your catalog entry matches your manifest.
 
-Keep previews compact: RackTicker downloads the repository archive even when
-installing a single folder, and enforces an archive-size limit.
+Give the entry a `category`, which is where the control page lists it: `clocks`,
+`around` (around you), `sports`, `news` (news and money), `space`, `games`,
+`ambient` (ambient and art), `rack` or `more`.
+
+`preview.gif` is what people see in the store before they install, playing on its
+own: show the screen at its best in a few seconds, and keep it under about 2 MB.
+RackTicker installs a plugin by downloading just its own folder.
 
 Run the tests with a RackTicker checkout beside this repository:
 

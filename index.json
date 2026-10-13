@@ -6,238 +6,272 @@
       "name": "Algorithms",
       "author": "Costa Mesa Tech Solutions",
       "description": "Computer science you can watch: two sorting algorithms race to put the same 64 shuffled bars in order, then a maze carves itself across the panel, a flood finds the way through and a runner takes the shortest path.",
-      "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/algorithms"
+      "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/algorithms",
+      "category": "games"
     },
     {
       "id": "arcade",
       "name": "Arcade",
       "author": "Costa Mesa Tech Solutions",
       "description": "Ambient arcade: real games, played live by simple AIs at native resolution.",
-      "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/arcade"
+      "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/arcade",
+      "category": "games"
     },
     {
       "id": "asteroids",
       "name": "Asteroids",
       "author": "Costa Mesa Tech Solutions",
       "description": "Space rocks passing close to Earth this month, from NASA JPL: each one sweeping past the Earth and the Moon's orbit at its real distance, when it is closest, how fast and how big ('as big as a bus'). One passing inside the Moon's orbit takes over as it comes by.",
-      "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/asteroids"
+      "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/asteroids",
+      "category": "space"
     },
     {
       "id": "bar_trivia",
       "name": "Bar trivia",
       "author": "Costa Mesa Tech Solutions",
       "description": "Sports-bar trivia on the panel: a question, four answers, a countdown, then the reveal. Always fresh from the free Open Trivia DB and The Trivia API; a built-in set keeps it going offline.",
-      "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/bar_trivia"
+      "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/bar_trivia",
+      "category": "games"
     },
     {
       "id": "blocks",
       "name": "Blocks",
       "author": "Costa Mesa Tech Solutions",
       "description": "The Bitcoin network building its chain: the last blocks as cubes with their age and size, who mined the latest, how many transactions are waiting and what it costs to get in, and the countdown to the next halving. Public data from mempool.space; no prices, no trading.",
-      "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/blocks"
+      "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/blocks",
+      "category": "news"
     },
     {
       "id": "casino",
       "name": "Casino",
       "author": "Costa Mesa Tech Solutions",
       "description": "Games of chance that play themselves under the lights: Plinko chips rattling down through the pegs into the prize slots, and a slot machine spinning, stopping reel by reel, near misses and all, with a light show for a jackpot. No money, just the show.",
-      "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/casino"
+      "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/casino",
+      "category": "games"
     },
     {
       "id": "chess",
       "name": "Chess",
       "author": "Costa Mesa Tech Solutions",
       "description": "A live game between strong players from Lichess TV, move by move: the board with the last move lit, both players with titles, ratings and running clocks, and the move just played in big letters. Free and open, no account.",
-      "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/chess"
+      "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/chess",
+      "category": "games"
     },
     {
       "id": "deep_space",
       "name": "Deep space",
       "author": "Costa Mesa Tech Solutions",
       "description": "How far away our farthest spacecraft are, rolling like an odometer at their real speed: Voyager 1 and 2, New Horizons and Parker Solar Probe, with how long their radio signal takes to reach us, and Voyager 1's countdown to one light-day from Earth. From NASA JPL Horizons.",
-      "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/deep_space"
+      "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/deep_space",
+      "category": "space"
     },
     {
       "id": "departures",
       "name": "Departures",
       "author": "Costa Mesa Tech Solutions",
       "description": "Live station boards: the London Underground in its own line colours, Metrolink and Amtrak across the United States, BART, and seven European stations, each drawn the way that country's boards look, with trains pulling into the platform.",
-      "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/departures"
+      "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/departures",
+      "category": "around"
     },
     {
       "id": "derby",
       "name": "Derby night",
       "author": "Costa Mesa Tech Solutions",
       "description": "A horse race that runs itself, sportsbook style: the tote board with the morning line, the gate, the field down the stretch with the running order, a photo finish when it is close, and what a $2 ticket paid. No betting, just the show.",
-      "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/derby"
+      "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/derby",
+      "category": "sports"
     },
     {
       "id": "f1",
       "name": "Formula 1",
       "author": "Costa Mesa Tech Solutions",
       "description": "Formula 1: a start-light gantry counting down to lights out, the last race's podium and the championship fight. Key-free Jolpica (Ergast-compatible) API.",
-      "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/f1"
+      "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/f1",
+      "category": "sports"
     },
     {
       "id": "harbor",
       "name": "Harbor",
       "author": "Costa Mesa Tech Solutions",
       "description": "The ships around you, live from their own radio beacons: a radar picture of the water near home with every ship moving, anchored ones blinking; how many are at anchor, under way and alongside; and the biggest, with what they are, how long and where they are bound. Needs a free aisstream.io key.",
-      "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/harbor"
+      "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/harbor",
+      "category": "around"
     },
     {
       "id": "iss",
       "name": "Space station",
       "author": "Costa Mesa Tech Solutions",
       "description": "The International Space Station live: a lit world map with its track, what it is flying over and how fast, the crew's next sunset, who is aboard, and a take-over that tells you where to look when it crosses your sky.",
-      "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/iss"
+      "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/iss",
+      "category": "space"
     },
     {
       "id": "launches",
       "name": "Launches",
       "author": "Costa Mesa Tech Solutions",
       "description": "The next rockets to fly, each with a countdown, its status and where it goes from. Launches you can see from home come first, with which way to look and a twilight flag for the glowing 'jellyfish'; ten minutes before one, the screen takes over for the count and liftoff.",
-      "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/launches"
+      "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/launches",
+      "category": "space"
     },
     {
       "id": "markets",
       "name": "Prediction markets",
       "author": "Costa Mesa Tech Solutions",
       "description": "Read-only public prediction-market odds board; no trading capability.",
-      "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/markets"
+      "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/markets",
+      "category": "news"
     },
     {
       "id": "now_playing",
       "name": "Now playing",
       "author": "Costa Mesa Tech Solutions",
       "description": "The song you are listening to, like an old car stereo: album art, the title and artist scrolling past, track number and time, and a segmented spectrum analyser. From Spotify or any Home Assistant media player.",
-      "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/now_playing"
+      "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/now_playing",
+      "category": "ambient"
     },
     {
       "id": "onboard",
       "name": "Onboard",
       "author": "Costa Mesa Tech Solutions",
       "description": "The display above the carriage doors, for a train that is really running: the next stop in big letters, when it gets there, how fast it is going, whether it is on time, and the train moving along the line to it.",
-      "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/onboard"
+      "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/onboard",
+      "category": "ambient"
     },
     {
       "id": "pocket_baseball",
       "name": "Pocket baseball",
       "author": "Costa Mesa Tech Solutions",
       "description": "A made-up Orange County league that is always playing, pitch by pitch, on the clock: the diamond with runners and outs, the count, the line score and each play; then the final and the next game. Big-league outcome rates, so the scores look real.",
-      "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/pocket_baseball"
+      "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/pocket_baseball",
+      "category": "sports"
     },
     {
       "id": "quakes",
       "name": "Quakes",
       "author": "Costa Mesa Tech Solutions",
       "description": "Earthquakes around you from the USGS: a 24-hour seismograph drum, the latest shakes by size and distance, and a take-over when a strong one hits nearby.",
-      "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/quakes"
+      "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/quakes",
+      "category": "around"
     },
     {
       "id": "retro_savers",
       "name": "Retro Screensavers",
       "author": "Costa Mesa Tech Solutions",
       "description": "Classic desktop nostalgia in 128×32 pixels: growing 3D pipes, Mystify trails, starfield, a bouncing four-pane badge and marquee text.",
-      "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/retro_savers"
+      "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/retro_savers",
+      "category": "ambient"
     },
     {
       "id": "satellites",
       "name": "Satellites overhead",
       "author": "Costa Mesa Tech Solutions",
       "description": "Every working satellite above your horizon right now, across the whole 360° sky and moving at its real pace: often a thousand at once, mostly Starlink. After dark the ones still lit by the Sun shine brighter; the space stations are named. Then the count by owner.",
-      "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/satellites"
+      "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/satellites",
+      "category": "space"
     },
     {
       "id": "sky",
       "name": "Sky",
       "author": "Costa Mesa Tech Solutions",
       "description": "Your whole horizon, 360 degrees across the panel: the Sun, the Moon, the five bright planets and the brightest stars where they really are, over a sky coloured by the time of day. Then the next twelve hours in eleven seconds, and when each planet rises and sets.",
-      "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/sky"
+      "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/sky",
+      "category": "space"
     },
     {
       "id": "space_weather",
       "name": "Space weather",
       "author": "Costa Mesa Tech Solutions",
       "description": "What the Sun is doing to the Earth, from NOAA: the geomagnetic storm level with yesterday and the forecast as bars, the solar wind streaming past at its real speed, six hours of solar X-rays on the flare scale, and whether the northern lights could reach you.",
-      "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/space_weather"
+      "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/space_weather",
+      "category": "space"
     },
     {
       "id": "surf",
       "name": "Surf",
       "author": "Costa Mesa Tech Solutions",
       "description": "The surf at your break: wave height, swell period and direction, water temperature, and real water — a simulated sea driven by the actual swell, sitting high or low with the actual tide.",
-      "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/surf"
+      "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/surf",
+      "category": "around"
     },
     {
       "id": "tanks",
       "name": "Tanks",
       "author": "Costa Mesa Tech Solutions",
       "description": "Real levels as sloshing water: California's big reservoirs, and the space station's urine and water tanks when NASA's live feed answers.",
-      "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/tanks"
+      "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/tanks",
+      "category": "around"
     },
     {
       "id": "three_bodies",
       "name": "Three bodies",
       "author": "Costa Mesa Tech Solutions",
       "description": "The Sun, the Earth and the Moon side by side as they are right now: NOAA's newest picture of the Sun, the whole Earth from a weather satellite with today's clouds, and the Moon in its exact phase. Then the latest solar flare and the next full Moon.",
-      "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/three_bodies"
+      "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/three_bodies",
+      "category": "space"
     },
     {
       "id": "ticker_wall",
       "name": "LED sign",
       "author": "Costa Mesa Tech Solutions",
       "description": "Programmable LED sign: the storefront kind that spells words out of flying pixels, drops letters in, spins slot reels and chases marquee bulbs.",
-      "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/ticker_wall"
+      "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/ticker_wall",
+      "category": "ambient"
     },
     {
       "id": "traffic",
       "name": "Freeway traffic",
       "author": "Costa Mesa Tech Solutions",
       "description": "Freeway traffic board: live CHP incidents on nearby freeways, shown as a freeway shield, what happened, where, and how long ago.",
-      "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/traffic"
+      "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/traffic",
+      "category": "around"
     },
     {
       "id": "url_data",
       "name": "Data from a link",
       "author": "Costa Mesa Tech Solutions",
       "description": "Any number or text from a JSON web address, shown as a big clean card. No code: paste a link and the field to show.",
-      "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/url_data"
+      "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/url_data",
+      "category": "more"
     },
     {
       "id": "video_player",
       "name": "Video player",
       "author": "Costa Mesa Tech Solutions",
       "description": "Loops a short clip on the panel from a local file, a direct video URL, or any live stream ffmpeg can open. Give it several sources, or a YouTube channel, and it becomes a chill rotating channel.",
-      "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/video_player"
+      "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/video_player",
+      "category": "ambient"
     },
     {
       "id": "virtual_aquarium",
       "name": "Virtual Aquarium",
       "author": "Costa Mesa Tech Solutions",
       "description": "A living pixel aquarium: clownfish, angelfish, neon tetras, swaying plants and a wandering snail. Optionally mirrors real tank readings and lighting.",
-      "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/virtual_aquarium"
+      "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/virtual_aquarium",
+      "category": "ambient"
     },
     {
       "id": "wiki_pulse",
       "name": "Wiki pulse",
       "author": "Costa Mesa Tech Solutions",
       "description": "The world editing Wikipedia, live: a heartbeat where every edit is a blip, edits a minute and the article just touched; then the articles edited most in the last hour, where the news shows up first, and the brand-new articles.",
-      "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/wiki_pulse"
+      "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/wiki_pulse",
+      "category": "news"
     },
     {
       "id": "wildfires",
       "name": "Wildfires",
       "author": "Costa Mesa Tech Solutions",
       "description": "The fires burning near you, anywhere in the US: how many are active within your distance, then each of the nearest with a flickering flame, acres burned, a containment bar, how far and which way, and how many days it has burned. A new fire close by takes over once. From NIFC.",
-      "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/wildfires"
+      "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/wildfires",
+      "category": "around"
     },
     {
       "id": "word_bot",
       "name": "Word bot",
       "author": "Costa Mesa Tech Solutions",
       "description": "A robot plays the five-letter word game on its own: each guess typed out, the tiles flipping green, gold and grey, how many words could still be the answer, the share grid filling up, and its running average. Usually done in three or four.",
-      "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/word_bot"
+      "url": "https://github.com/costamesatechsolutions/rackticker-community-plugins/tree/main/plugins/word_bot",
+      "category": "games"
     }
   ]
 }

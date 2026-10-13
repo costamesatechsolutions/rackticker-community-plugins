@@ -6,7 +6,8 @@ Each folder in `plugins/` is independently installable and has its own AGENTS.md
 Follow those instructions and import only RackTicker's public API in plugin code.
 
 - Keep manifest IDs stable. Folder names match manifest IDs.
-- Add one matching entry to root `index.json` for each plugin.
+- Add one matching entry to root `index.json` for each plugin, with a `category`
+  (clocks, around, sports, news, space, games, ambient, rack or more).
 - Install URLs must point to `.../tree/main/plugins/PLUGIN_ID`, not the repository root.
 - Keep each plugin self-contained, including its license and required assets.
 - Do not commit tokens, device configuration or credentials.
